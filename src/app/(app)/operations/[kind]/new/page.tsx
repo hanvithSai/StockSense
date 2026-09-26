@@ -22,6 +22,7 @@ export default async function NewOperationPage({ params, searchParams }: Props) 
   return (
     <NewOperation
       type={type}
+      copyFrom={text("from")}
       prefill={{
         product: text("product"),
         quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : undefined,

@@ -29,11 +29,18 @@ function useFormReady() {
   return results.every((result) => result.isSuccess);
 }
 
-export function NewOperation({ type, prefill }: { type: OperationType; prefill: OperationPrefill }) {
+export function NewOperation({ type, prefill, copyFrom }: { type: OperationType; prefill: OperationPrefill; copyFrom?: string }) {
   const { can } = useSession();
   const ready = useFormReady();
+  const template = useQuery({
+    queryKey: ["operation", copyFrom],
+    queryFn: () => api<OperationDTO>(`/api/operations/${copyFrom}`),
+    enabled: Boolean(copyFrom),
+  });
   if (!can(manageCapability(type))) redirect(operationPath(type));
-  return ready ? <OperationForm type={type} prefill={prefill} /> : <FormSkeleton />;
+  if (!ready || (copyFrom && template.isLoading)) return <FormSkeleton />;
+  const source = template.data?.type === type ? template.data : undefined;
+  return <OperationForm type={type} prefill={prefill} template={source} />;
 }
 
 export function OperationDetail({ type, id }: { type: OperationType; id: string }) {

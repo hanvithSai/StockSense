@@ -8,6 +8,7 @@ import {
   Ban,
   CheckCheck,
   CircleCheck,
+  Copy,
   Hand,
   ListChecks,
   MoreHorizontal,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -72,29 +73,35 @@ interface OperationFormProps {
   type: OperationType;
   operation?: OperationDTO;
   prefill?: OperationPrefill;
+  /** Existing operation to copy into a new draft (Duplicate). */
+  template?: OperationDTO;
 }
 
 const CONTACT_LABEL: Partial<Record<OperationType, string>> = { receipt: "Receive from", delivery: "Customer" };
 
+function fromOperation(operation: OperationDTO): OperationFields {
+  return {
+    sourceLocation: operation.sourceLocation.type === "internal" ? operation.sourceLocation.id : "",
+    destLocation: operation.destLocation.type === "internal" ? operation.destLocation.id : "",
+    contact: operation.contact,
+    deliveryAddress: operation.deliveryAddress,
+    scheduledDate: operation.scheduledDate,
+    responsible: operation.responsible?.id ?? "",
+    notes: operation.notes,
+    lines: operation.lines.map((line) => ({ product: line.productId, quantity: line.quantity })),
+  };
+}
+
 function initialValues(
   type: OperationType,
   operation: OperationDTO | undefined,
+  template: OperationDTO | undefined,
   prefill: OperationPrefill | undefined,
   defaultLocation: string,
   userId: string,
 ): OperationFields {
-  if (operation) {
-    return {
-      sourceLocation: operation.sourceLocation.type === "internal" ? operation.sourceLocation.id : "",
-      destLocation: operation.destLocation.type === "internal" ? operation.destLocation.id : "",
-      contact: operation.contact,
-      deliveryAddress: operation.deliveryAddress,
-      scheduledDate: operation.scheduledDate,
-      responsible: operation.responsible?.id ?? "",
-      notes: operation.notes,
-      lines: operation.lines.map((line) => ({ product: line.productId, quantity: line.quantity })),
-    };
-  }
+  if (operation) return fromOperation(operation);
+  if (template) return { ...fromOperation(template), scheduledDate: todayISO(), responsible: userId, notes: "" };
   const main = prefill?.location ?? defaultLocation;
   return {
     sourceLocation: type === "delivery" || type === "internal" ? main : "",
@@ -148,7 +155,7 @@ function ActionButton({
   );
 }
 
-export function OperationForm({ type, operation, prefill }: OperationFormProps) {
+export function OperationForm({ type, operation, prefill, template }: OperationFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, can } = useSession();
@@ -174,7 +181,7 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
   const resolver = useMemo(() => operationResolver(type), [type]);
   const form = useForm<OperationFields>({
     resolver,
-    defaultValues: initialValues(type, operation, prefill, primaryLocationId(warehouses, locations), user.id),
+    defaultValues: initialValues(type, operation, template, prefill, primaryLocationId(warehouses, locations), user.id),
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "lines" });
   const lines = useWatch({ control: form.control, name: "lines" }) ?? [];
@@ -185,6 +192,18 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
   const [pending, setPending] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
   const [scan, setScan] = useState("");
+
+  // Ctrl/Cmd + S saves the document.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() === "s" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        if (headerEditable && (isNew || form.formState.isDirty)) void form.handleSubmit(onSubmit)();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   /** Barcode scanners type the SKU followed by Enter: add the product or increase its quantity. */
   function addScanned() {
@@ -412,7 +431,7 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
                   <Ban /> Cancel
                 </Button>
               )}
-              {(canReset || canDelete) && (
+              {(canReset || canDelete || canManage) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button type="button" variant="ghost" size="icon" aria-label="More actions">
@@ -420,6 +439,11 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
+                    {canManage && (
+                      <DropdownMenuItem onSelect={() => router.push(`${operationPath(type)}/new?from=${operation!.id}`)}>
+                        <Copy /> Duplicate
+                      </DropdownMenuItem>
+                    )}
                     {canReset && (
                       <DropdownMenuItem onSelect={() => runAction("reset")}>
                         <RotateCcw /> Reset to draft
