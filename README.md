@@ -150,7 +150,7 @@ Demo accounts created by the seed:
 | Inventory Manager | `rohan.iyer` | `Rohan@1234` |
 | Warehouse Staff | `sneha.k` | `Sneha@1234` |
 
-The seed builds a realistic workspace in about 12 seconds: 3 warehouses with 11 locations, 7 categories, 46 products with reordering rules, and 75 days of deterministic history (opening balances, vendor receipts, customer deliveries, production and inter-warehouse transfers, cycle counts, occasional cancellations and late validations) with a matching audit trail. Today's open work (ready, waiting, late and upcoming operations) goes through the real stock engine, including reservations.
+The seed builds a realistic workspace in about 12 seconds: 3 warehouses with 11 locations, 7 categories, 46 products with reordering rules, and 75 days of deterministic history (opening balances, vendor receipts, customer deliveries, production and inter-warehouse transfers, cycle counts, occasional cancellations and late validations) with a matching audit trail. Today's open work (ready, waiting, late and upcoming operations, a partial receipt with its backorder and a customer return) goes through the real stock engine, including reservations.
 
 Without the seed, the first account that signs up becomes the Inventory Manager; later sign-ups join as Warehouse Staff.
 
