@@ -1,4 +1,5 @@
 import type {
+  AuditEntity,
   LocationType,
   OperationStatus,
   OperationType,
@@ -6,6 +7,20 @@ import type {
   StockStatus,
   UnitOfMeasure,
 } from "./constants";
+
+/** One entry of the audit trail ("who did what, when"). */
+export interface AuditLogDTO {
+  id: string;
+  entityType: AuditEntity;
+  entityId: string | null;
+  entityLabel: string;
+  action: string;
+  message: string;
+  link: string | null;
+  userId: string | null;
+  userName: string;
+  createdAt: string;
+}
 
 /** Shapes returned by the REST API (shared by server serializers and client components). */
 

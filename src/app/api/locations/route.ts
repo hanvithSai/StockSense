@@ -9,6 +9,6 @@ export const GET = route({}, async ({ req }) =>
   }),
 );
 
-export const POST = route({ capability: "master:write" }, async ({ req }) => ({
-  id: await createLocation(await parseBody(req, locationSchema)),
+export const POST = route({ capability: "master:write" }, async ({ req, user }) => ({
+  id: await createLocation(await parseBody(req, locationSchema), user),
 }));

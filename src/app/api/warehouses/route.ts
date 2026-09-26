@@ -4,6 +4,6 @@ import { createWarehouse, listWarehouses } from "@/server/services/warehouses";
 
 export const GET = route({}, async () => listWarehouses());
 
-export const POST = route({ capability: "master:write" }, async ({ req }) => ({
-  id: await createWarehouse(await parseBody(req, warehouseSchema)),
+export const POST = route({ capability: "master:write" }, async ({ req, user }) => ({
+  id: await createWarehouse(await parseBody(req, warehouseSchema), user),
 }));

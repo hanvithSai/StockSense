@@ -8,6 +8,7 @@ import {
   MapPin,
   Package,
   RefreshCcw,
+  ScrollText,
   Tags,
   Truck,
   Users,
@@ -60,6 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Warehouses", href: "/settings/warehouses", icon: Warehouse },
       { title: "Locations", href: "/settings/locations", icon: MapPin },
       { title: "Users", href: "/settings/users", icon: Users, capability: "users:manage" },
+      { title: "Audit Log", href: "/settings/audit-log", icon: ScrollText, capability: "users:manage" },
     ],
   },
 ];

@@ -96,5 +96,25 @@ export type UnitOfMeasure = (typeof UNITS_OF_MEASURE)[number];
 export const STOCK_STATUSES = ["ok", "low", "out"] as const;
 export type StockStatus = (typeof STOCK_STATUSES)[number];
 
+export const AUDIT_ENTITIES = [
+  "operation",
+  "product",
+  "category",
+  "warehouse",
+  "location",
+  "reorderRule",
+  "user",
+] as const;
+export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
+export const AUDIT_ENTITY_LABELS: Record<AuditEntity, string> = {
+  operation: "Operation",
+  product: "Product",
+  category: "Category",
+  warehouse: "Warehouse",
+  location: "Location",
+  reorderRule: "Reordering rule",
+  user: "User",
+};
+
 export const MAX_QUANTITY = 1_000_000_000;
 export const LIVE_REFRESH_MS = 15_000;

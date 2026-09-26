@@ -1,3 +1,4 @@
+export { AuditLog } from "./audit-log";
 export { Category } from "./category";
 export { Counter } from "./counter";
 export { Location } from "./location";

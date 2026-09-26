@@ -1,6 +1,6 @@
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId } from "mongoose";
-import type { Role } from "@/lib/constants";
+import { ROLE_LABELS, type Role } from "@/lib/constants";
 import type { SessionUser, UserDTO, UserOptionDTO } from "@/lib/types";
 import type {
   ChangePasswordInput,
@@ -14,6 +14,18 @@ import { AppError, badRequest, conflict, notFound, tooManyRequests, validationEr
 import { isMailConfigured, otpEmail, sendMail } from "@/server/mailer";
 import { OtpToken } from "@/server/models/otp-token";
 import { User, type UserRecord } from "@/server/models/user";
+import { recordActivity } from "./audit";
+
+const userLog = (user: { _id: { toString(): string }; name: string }, action: string, message: string) => ({
+  entityType: "user" as const,
+  entityId: user._id.toString(),
+  entityLabel: user.name,
+  action,
+  message,
+  link: "/settings/users",
+});
+
+const actorOf = (user: { _id: { toString(): string }; name: string }) => ({ id: user._id.toString(), name: user.name });
 
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
@@ -45,6 +57,7 @@ export async function signup(input: SignupInput): Promise<UserRecord> {
     role,
     lastLoginAt: new Date(),
   });
+  await recordActivity(actorOf(user), userLog(user, "signed_up", `Created an account as ${ROLE_LABELS[role]}`));
   return user.toObject() as UserRecord;
 }
 
@@ -73,6 +86,7 @@ export async function login(input: LoginInput): Promise<UserRecord> {
   }
   if (!user.isActive) throw new AppError(403, "ACCOUNT_DISABLED", "This account has been deactivated. Contact your manager");
   await User.updateOne({ _id: user._id }, { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null });
+  await recordActivity(actorOf(user), userLog(user, "signed_in", "Signed in"));
   return user;
 }
 
@@ -154,6 +168,7 @@ export async function resetPassword(input: ResetPasswordInput): Promise<UserReco
   user.lockedUntil = null;
   await user.save();
   await OtpToken.deleteMany({ user: user._id });
+  await recordActivity(actorOf(user), userLog(user, "password_reset", "Reset the password with a one-time code"));
   return user.toObject() as UserRecord;
 }
 
@@ -164,6 +179,7 @@ export async function updateProfile(actor: SessionUser, input: ProfileInput): Pr
     throw validationError({ email: "An account with this email already exists" });
   }
   await User.updateOne({ _id: actor.id }, { name: input.name, email: input.email });
+  await recordActivity(actor, userLog({ _id: actor.id, name: input.name }, "updated", "Updated profile details"));
 }
 
 export async function changePassword(actor: SessionUser, input: ChangePasswordInput): Promise<UserRecord> {
@@ -175,6 +191,7 @@ export async function changePassword(actor: SessionUser, input: ChangePasswordIn
   user.passwordHash = await hashPassword(input.newPassword);
   user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   await user.save();
+  await recordActivity(actor, userLog(user, "password_changed", "Changed the password"));
   return user.toObject() as UserRecord;
 }
 
@@ -222,4 +239,10 @@ export async function updateUser(
     if (!input.isActive) user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   }
   await user.save();
+  if (input.role) {
+    await recordActivity(actor, userLog(user, "role_changed", `Role changed to ${ROLE_LABELS[input.role]}`));
+  }
+  if (input.isActive !== undefined) {
+    await recordActivity(actor, userLog(user, input.isActive ? "activated" : "deactivated", input.isActive ? "Account activated" : "Account deactivated"));
+  }
 }

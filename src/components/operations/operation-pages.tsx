@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { notFound, redirect } from "next/navigation";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { useSession } from "@/components/layout/session-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocations, useProductOptions, useUserOptions, useWarehouses } from "@/hooks/use-reference-data";
@@ -45,6 +46,11 @@ export function OperationDetail({ type, id }: { type: OperationType; id: string 
   if (error instanceof ApiError && (error.status === 404 || error.status === 400)) notFound();
   if (data && data.type !== type) redirect(operationPath(data.type, data.id));
   if (!data || !ready) return <FormSkeleton />;
-  // Remount the form whenever the server state changes so it always reflects the saved record.
-  return <OperationForm key={`${data.id}-${data.updatedAt}`} type={type} operation={data} />;
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {/* Remount the form whenever the server state changes so it always reflects the saved record. */}
+      <OperationForm key={`${data.id}-${data.updatedAt}`} type={type} operation={data} />
+      <ActivityTimeline entityType="operation" entityId={data.id} className="self-start xl:sticky xl:top-20 xl:mt-10" />
+    </div>
+  );
 }

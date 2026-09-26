@@ -9,6 +9,25 @@ import { Operation } from "@/server/models/operation";
 import { ReorderRule } from "@/server/models/reorder-rule";
 import { StockQuant } from "@/server/models/stock-quant";
 import { Warehouse, type WarehouseRecord } from "@/server/models/warehouse";
+import { recordActivity, type AuditActor } from "./audit";
+
+const warehouseLog = (id: Types.ObjectId, label: string, action: string, message: string) => ({
+  entityType: "warehouse" as const,
+  entityId: id,
+  entityLabel: label,
+  action,
+  message,
+  link: action === "deleted" ? null : "/settings/warehouses",
+});
+
+const locationLog = (id: Types.ObjectId, label: string, action: string, message: string) => ({
+  entityType: "location" as const,
+  entityId: id,
+  entityLabel: label,
+  action,
+  message,
+  link: action === "deleted" ? null : "/settings/locations",
+});
 
 /* -------------------------------------------------------------- warehouses */
 
@@ -37,7 +56,7 @@ export async function listWarehouses(): Promise<WarehouseDTO[]> {
 }
 
 /** Creates a warehouse together with its main `<CODE>/Stock` location. */
-export async function createWarehouse(input: WarehouseInput): Promise<string> {
+export async function createWarehouse(input: WarehouseInput, actor: AuditActor): Promise<string> {
   return withTransaction(async (session) => {
     const [warehouse] = await Warehouse.create([input], { session });
     const [stock] = await Location.create(
@@ -54,11 +73,16 @@ export async function createWarehouse(input: WarehouseInput): Promise<string> {
     );
     warehouse.defaultLocation = stock._id;
     await warehouse.save({ session });
+    await recordActivity(
+      actor,
+      warehouseLog(warehouse._id, warehouse.name, "created", `Created warehouse ${warehouse.name} (${warehouse.shortCode}) with location ${stock.fullName}`),
+      session,
+    );
     return warehouse._id.toString();
   });
 }
 
-export async function updateWarehouse(id: string, input: WarehouseInput): Promise<void> {
+export async function updateWarehouse(id: string, input: WarehouseInput, actor: AuditActor): Promise<void> {
   await withTransaction(async (session) => {
     const warehouse = await Warehouse.findById(id).session(session);
     if (!warehouse) throw notFound("Warehouse");
@@ -75,10 +99,11 @@ export async function updateWarehouse(id: string, input: WarehouseInput): Promis
     }
     warehouse.set(input);
     await warehouse.save({ session });
+    await recordActivity(actor, warehouseLog(warehouse._id, warehouse.name, "updated", `Updated warehouse ${warehouse.name}`), session);
   });
 }
 
-export async function deleteWarehouse(id: string): Promise<void> {
+export async function deleteWarehouse(id: string, actor: AuditActor): Promise<void> {
   if (!isValidObjectId(id)) throw notFound("Warehouse");
   await withTransaction(async (session) => {
     const warehouse = await Warehouse.findById(id).session(session);
@@ -94,6 +119,7 @@ export async function deleteWarehouse(id: string): Promise<void> {
     await ReorderRule.deleteMany({ warehouse: warehouse._id }, { session });
     await StockQuant.deleteMany({ warehouse: warehouse._id }, { session });
     await warehouse.deleteOne({ session });
+    await recordActivity(actor, warehouseLog(warehouse._id, warehouse.name, "deleted", `Deleted warehouse ${warehouse.name}`), session);
   });
 }
 
@@ -138,7 +164,7 @@ async function warehouseFor(id: string) {
   return warehouse;
 }
 
-export async function createLocation(input: LocationInput): Promise<string> {
+export async function createLocation(input: LocationInput, actor: AuditActor): Promise<string> {
   const warehouse = await warehouseFor(input.warehouse);
   const location = await Location.create({
     name: input.name,
@@ -147,6 +173,7 @@ export async function createLocation(input: LocationInput): Promise<string> {
     type: "internal",
     fullName: `${warehouse.shortCode}/${input.shortCode}`,
   });
+  await recordActivity(actor, locationLog(location._id, location.fullName, "created", `Created location ${location.fullName}`));
   return location._id.toString();
 }
 
@@ -158,7 +185,7 @@ async function isLocationInUse(id: Types.ObjectId) {
   return Boolean(operation || stock);
 }
 
-export async function updateLocation(id: string, input: LocationInput): Promise<void> {
+export async function updateLocation(id: string, input: LocationInput, actor: AuditActor): Promise<void> {
   const location = isValidObjectId(id) ? await Location.findById(id) : null;
   if (!location) throw notFound("Location");
   if (location.isSystem) throw conflict("System locations cannot be edited");
@@ -175,9 +202,10 @@ export async function updateLocation(id: string, input: LocationInput): Promise<
     fullName: `${warehouse.shortCode}/${input.shortCode}`,
   });
   await location.save();
+  await recordActivity(actor, locationLog(location._id, location.fullName, "updated", `Updated location ${location.fullName}`));
 }
 
-export async function deleteLocation(id: string): Promise<void> {
+export async function deleteLocation(id: string, actor: AuditActor): Promise<void> {
   const location = isValidObjectId(id) ? await Location.findById(id) : null;
   if (!location) throw notFound("Location");
   if (location.isSystem) throw conflict("System locations cannot be deleted");
@@ -189,4 +217,5 @@ export async function deleteLocation(id: string): Promise<void> {
   }
   await StockQuant.deleteMany({ location: location._id });
   await location.deleteOne();
+  await recordActivity(actor, locationLog(location._id, location.fullName, "deleted", `Deleted location ${location.fullName}`));
 }

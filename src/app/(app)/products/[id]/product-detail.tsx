@@ -5,6 +5,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Boxes, History, Pencil, RefreshCcw 
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useState } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { EmptyState } from "@/components/common/empty-state";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
@@ -194,7 +195,8 @@ export function ProductDetail({ id }: { id: string }) {
             </Card>
           </div>
 
-          <Card className="mt-6 gap-0 pb-0">
+          <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="gap-0 pb-0">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2">
                 <History className="size-4" /> Stock ledger
@@ -250,6 +252,8 @@ export function ProductDetail({ id }: { id: string }) {
               </TableBody>
             </Table>
           </Card>
+          <ActivityTimeline entityType="product" entityId={data.id} className="self-start" />
+          </div>
 
           <ProductFormDialog open={editing} onOpenChange={setEditing} product={data} />
           <UpdateStockDialog target={stockTarget} onClose={() => setStockTarget(null)} />

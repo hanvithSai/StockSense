@@ -1,6 +1,6 @@
 import type { ClientSession, Types } from "mongoose";
-import type { OperationStatus, OperationType } from "@/lib/constants";
-import { round3, todayISO } from "@/lib/format";
+import { OPERATION_META, operationPath, type OperationStatus, type OperationType } from "@/lib/constants";
+import { formatQty, round3, todayISO } from "@/lib/format";
 import type { SessionUser } from "@/lib/types";
 import {
   operationRules,
@@ -18,9 +18,22 @@ import { Product } from "@/server/models/product";
 import { StockQuant } from "@/server/models/stock-quant";
 import { User, type UserRecord } from "@/server/models/user";
 import { Warehouse, type WarehouseRecord } from "@/server/models/warehouse";
+import { recordActivity, summarizeLines } from "./audit";
 import type { ProductLean } from "./records";
 import { nextReference } from "./sequence";
 import { getSystemLocation } from "./system-locations";
+
+/** Audit entry for an operation (label, link and entity filled in). */
+function operationLog(op: OperationDocument, action: string, message: string) {
+  return {
+    entityType: "operation" as const,
+    entityId: op._id,
+    entityLabel: op.reference,
+    action,
+    message,
+    link: operationPath(op.type as OperationType, op._id.toString()),
+  };
+}
 
 /**
  * Inventory engine: the only place where stock quantities change.
@@ -128,7 +141,12 @@ async function release(op: OperationDocument, session: ClientSession) {
 }
 
 /** After stock arrives at a location, waiting operations sourcing from it become ready (FIFO). */
-async function promoteWaiting(session: ClientSession, locations: Types.ObjectId[]): Promise<string[]> {
+async function promoteWaiting(
+  session: ClientSession,
+  locations: Types.ObjectId[],
+  actor: Actor,
+  trigger: string,
+): Promise<string[]> {
   if (!locations.length) return [];
   const waiting = await Operation.find({ status: "waiting", sourceLocation: { $in: locations } })
     .sort({ scheduledDate: 1, createdAt: 1 })
@@ -138,6 +156,7 @@ async function promoteWaiting(session: ClientSession, locations: Types.ObjectId[
     if ((await reserve(op, session)).length === 0) {
       op.status = "ready";
       await op.save({ session });
+      await recordActivity(actor, operationLog(op, "ready", `Stock arrived with ${trigger}: reserved and ready`), session);
       promoted.push(op.reference);
     }
   }
@@ -285,9 +304,25 @@ export async function createOperation(input: OperationCreateInput, actor: Actor)
       [{ ...fields, reference, type: input.type, status: "draft", createdBy: actor.id }],
       { session },
     );
+    const count = op.lines.length;
+    await recordActivity(
+      actor,
+      operationLog(op, "created", `Created ${OPERATION_META[input.type].label.toLowerCase()} with ${count} product${count === 1 ? "" : "s"}`),
+      session,
+    );
     return op._id.toString();
   });
 }
+
+const TRACKED_FIELDS: { key: "contact" | "deliveryAddress" | "scheduledDate" | "responsibleName" | "notes" | "sourceName" | "destName"; label: string }[] = [
+  { key: "contact", label: "contact" },
+  { key: "deliveryAddress", label: "delivery address" },
+  { key: "scheduledDate", label: "schedule date" },
+  { key: "responsibleName", label: "responsible" },
+  { key: "notes", label: "notes" },
+  { key: "sourceName", label: "source" },
+  { key: "destName", label: "destination" },
+];
 
 export async function updateOperation(id: string, data: OperationFields, actor: Actor): Promise<void> {
   await withTransaction(async (session) => {
@@ -311,18 +346,26 @@ export async function updateOperation(id: string, data: OperationFields, actor: 
           "Choose a location in the operation's warehouse",
       });
     }
+    const linesChanged = structureEditable && structureChanged(op, data);
+    const changed = TRACKED_FIELDS.filter(({ key }) => key in fields && String(op[key] ?? "") !== String(fields[key as keyof typeof fields] ?? "")).map(
+      ({ label }) => label,
+    );
+    if (linesChanged) changed.push("products");
+
     op.set(fields);
     await op.save({ session });
+    if (changed.length) await recordActivity(actor, operationLog(op, "updated", `Updated ${changed.join(", ")}`), session);
   });
 }
 
-export async function deleteOperation(id: string): Promise<void> {
+export async function deleteOperation(id: string, actor: Actor): Promise<void> {
   const op = await Operation.findById(id);
   if (!op) throw notFound("Operation");
   if (op.status !== "draft" && op.status !== "cancelled") {
     throw conflict("Only draft or cancelled operations can be deleted");
   }
   await op.deleteOne();
+  await recordActivity(actor, { ...operationLog(op, "deleted", `Deleted ${op.reference}`), link: null });
 }
 
 async function locationWarehouse(location: Types.ObjectId, session: ClientSession) {
@@ -397,8 +440,33 @@ async function validate(op: OperationDocument, actor: Actor, session: ClientSess
   op.doneBy = actor.id as unknown as Types.ObjectId;
   op.doneByName = actor.name;
   await op.save({ session });
+  await recordActivity(actor, operationLog(op, "validated", validationMessage(op)), session);
 
-  return increasedLocation ? promoteWaiting(session, [increasedLocation]) : [];
+  return increasedLocation ? promoteWaiting(session, [increasedLocation], actor, op.reference) : [];
+}
+
+function validationMessage(op: OperationDocument): string {
+  const lines = op.lines.map((line) => ({ productName: line.productName, quantity: line.quantity, uom: line.uom }));
+  switch (op.type as OperationType) {
+    case "receipt":
+      return `Validated: received ${summarizeLines(lines)} into ${op.destName}`;
+    case "delivery":
+      return `Validated: shipped ${summarizeLines(lines)} from ${op.sourceName}`;
+    case "internal":
+      return `Validated: moved ${summarizeLines(lines)} from ${op.sourceName} to ${op.destName}`;
+    case "adjustment": {
+      const deltas = op.lines
+        .filter((line) => line.delta)
+        .map((line) => `${line.productName} ${line.delta! > 0 ? "+" : "−"}${formatQty(Math.abs(line.delta!))} ${line.uom}`);
+      return deltas.length ? `Validated count at ${op.destName}: ${deltas.join(", ")}` : `Validated count at ${op.destName}: no difference`;
+    }
+  }
+}
+
+function shortageText(shortages: Shortage[]): string {
+  return shortages
+    .map((item) => `${item.productName} (${formatQty(item.required)} needed, ${formatQty(item.available)} free)`)
+    .join(", ");
 }
 
 function resetPicking(op: OperationDocument) {
@@ -418,6 +486,7 @@ export async function runOperationAction(
     const op = await loadOperation(id, session);
     const type = op.type as OperationType;
     const outcome: ActionOutcome = { shortages: [], promoted: [] };
+    let log: { action: string; message: string } | null = null;
 
     switch (action) {
       case "confirm": {
@@ -426,9 +495,13 @@ export async function runOperationAction(
         if (!op.lines.length) throw conflict("Add at least one product first");
         if (type === "receipt") {
           op.status = "ready";
+          log = { action: "ready", message: "Marked as To Do: ready to receive" };
         } else {
           outcome.shortages = await reserve(op, session);
           op.status = outcome.shortages.length ? "waiting" : "ready";
+          log = outcome.shortages.length
+            ? { action: "waiting", message: `Marked as To Do: waiting for ${shortageText(outcome.shortages)}` }
+            : { action: "ready", message: "Marked as To Do: stock reserved" };
         }
         break;
       }
@@ -436,16 +509,22 @@ export async function runOperationAction(
         assertStatus(op, ["waiting"], "Only waiting operations need an availability check");
         outcome.shortages = await reserve(op, session);
         if (!outcome.shortages.length) op.status = "ready";
+        log = outcome.shortages.length
+          ? { action: "waiting", message: `Checked availability: still waiting for ${shortageText(outcome.shortages)}` }
+          : { action: "ready", message: "Checked availability: stock reserved" };
         break;
       }
       case "pick": {
         if (type !== "delivery") throw conflict("Picking applies to delivery orders only");
         assertStatus(op, ["ready"], "Items can be picked once the delivery is ready");
         const { lineIds, picked } = pickSchema.parse(body ?? {});
-        op.lines.forEach((line) => {
-          if (!lineIds || lineIds.includes(line._id.toString())) line.picked = picked;
+        const touched = op.lines.filter((line) => !lineIds || lineIds.includes(line._id.toString()));
+        touched.forEach((line) => {
+          line.picked = picked;
         });
         if (!op.lines.every((line) => line.picked)) op.packed = false;
+        const names = touched.length === op.lines.length ? "all items" : touched.map((line) => line.productName).join(", ");
+        log = { action: "picked", message: `${picked ? "Picked" : "Unpicked"} ${names}` };
         break;
       }
       case "pack": {
@@ -454,6 +533,7 @@ export async function runOperationAction(
         const { packed } = packSchema.parse(body ?? {});
         if (packed && !op.lines.every((line) => line.picked)) throw conflict("Pick all items before packing");
         op.packed = packed;
+        log = { action: "packed", message: packed ? "Packed items for shipping" : "Unpacked items" };
         break;
       }
       case "validate": {
@@ -462,10 +542,12 @@ export async function runOperationAction(
       }
       case "cancel": {
         assertStatus(op, ["draft", "waiting", "ready"], "This operation can no longer be cancelled");
-        if (op.status === "ready" && RESERVING_TYPES.includes(type)) await release(op, session);
+        const released = op.status === "ready" && RESERVING_TYPES.includes(type);
+        if (released) await release(op, session);
         op.status = "cancelled";
         op.cancelledAt = new Date();
         resetPicking(op);
+        log = { action: "cancelled", message: released ? "Cancelled and released reserved stock" : "Cancelled" };
         break;
       }
       case "reset": {
@@ -474,11 +556,13 @@ export async function runOperationAction(
         op.status = "draft";
         op.cancelledAt = null;
         resetPicking(op);
+        log = { action: "reset", message: "Reset to draft" };
         break;
       }
     }
 
     await op.save({ session });
+    if (log) await recordActivity(actor, operationLog(op, log.action, log.message), session);
     return outcome;
   });
 }
@@ -506,6 +590,7 @@ export async function createAppliedAdjustment(
     [{ ...fields, reference, type: "adjustment", status: "draft", createdBy: input.actor.id }],
     { session },
   );
+  await recordActivity(input.actor, operationLog(op, "created", `Created stock count: ${input.notes}`), session);
   const promoted = await validate(op, input.actor, session);
   return { id: op._id.toString(), reference, promoted };
 }

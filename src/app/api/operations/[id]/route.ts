@@ -15,6 +15,6 @@ export const PATCH = route({}, async ({ req, params, user }) => {
 
 export const DELETE = route({}, async ({ params, user }) => {
   if (!can(user.role, manageCapability(await getOperationType(params.id)))) throw forbidden();
-  await deleteOperation(params.id);
+  await deleteOperation(params.id, user);
   return { ok: true };
 });
