@@ -43,6 +43,8 @@ import type { DashboardDTO, OperationListDTO, OperationTypeStats } from "@/lib/t
 import { cn } from "@/lib/utils";
 import { ActivityChart } from "./activity-chart";
 import { GettingStarted } from "./getting-started";
+import { MyWork } from "./my-work";
+import { TeamActivity } from "./team-activity";
 
 const DOC_TYPE_TABS: Record<OperationType, string> = {
   receipt: "Receipts",
@@ -274,107 +276,111 @@ export function DashboardView() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-start">
         <div className="space-y-6 xl:col-span-2">
           <Card className="gap-0 pb-0">
-          <CardHeader className="gap-3 border-b pb-4">
-            <CardTitle>Operations</CardTitle>
-            <CardDescription>Filter by document type, status, warehouse, location or category.</CardDescription>
-            <CardAction>
-              <FilterSelect
-                value={status}
-                onChange={setStatus}
-                allLabel="All statuses"
-                options={OPERATION_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
-                className="sm:w-36"
-              />
-            </CardAction>
-            <Tabs value={docType} onValueChange={(value) => setDocType(value as OperationType | "all")}>
-              <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
-                <TabsTrigger value="all">All</TabsTrigger>
-                {OPERATION_TYPES.map((type) => (
-                  <TabsTrigger key={type} value={type}>
-                    {DOC_TYPE_TABS[type]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </CardHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead className="hidden sm:table-cell">Type</TableHead>
-                <TableHead className="hidden md:table-cell">Contact / Products</TableHead>
-                <TableHead>Scheduled</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {operations.isLoading ? (
-                <TableSkeleton columns={5} rows={4} />
-              ) : !operations.data?.items.length ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    No operations match these filters.
-                  </TableCell>
+            <CardHeader className="gap-3 border-b pb-4">
+              <CardTitle>Operations</CardTitle>
+              <CardDescription>Filter by document type, status, warehouse, location or category.</CardDescription>
+              <CardAction>
+                <FilterSelect
+                  value={status}
+                  onChange={setStatus}
+                  allLabel="All statuses"
+                  options={OPERATION_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+                  className="sm:w-36"
+                />
+              </CardAction>
+              <Tabs value={docType} onValueChange={(value) => setDocType(value as OperationType | "all")}>
+                <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  {OPERATION_TYPES.map((type) => (
+                    <TabsTrigger key={type} value={type}>
+                      {DOC_TYPE_TABS[type]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reference</TableHead>
+                  <TableHead className="hidden sm:table-cell">Type</TableHead>
+                  <TableHead className="hidden md:table-cell">Contact / Products</TableHead>
+                  <TableHead>Scheduled</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
                 </TableRow>
-              ) : (
-                operations.data.items.map((item) => (
-                  <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(operationPath(item.type, item.id))}>
-                    <TableCell className="font-mono text-sm font-semibold">{item.reference}</TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{OPERATION_META[item.type].label}</TableCell>
-                    <TableCell className="hidden max-w-56 truncate md:table-cell">{item.contact || item.productSummary}</TableCell>
-                    <TableCell className={cn("whitespace-nowrap text-sm", item.isLate && "font-medium text-destructive")}>
-                      {item.isLate && <TriangleAlert className="mr-1 inline size-3.5" />}
-                      {formatDate(item.scheduledDate)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <StatusBadge status={item.status} />
+              </TableHeader>
+              <TableBody>
+                {operations.isLoading ? (
+                  <TableSkeleton columns={5} rows={4} />
+                ) : !operations.data?.items.length ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                      No operations match these filters.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  operations.data.items.map((item) => (
+                    <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(operationPath(item.type, item.id))}>
+                      <TableCell className="font-mono text-sm font-semibold">{item.reference}</TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{OPERATION_META[item.type].label}</TableCell>
+                      <TableCell className="hidden max-w-56 truncate md:table-cell">{item.contact || item.productSummary}</TableCell>
+                      <TableCell className={cn("whitespace-nowrap text-sm", item.isLate && "font-medium text-destructive")}>
+                        {item.isLate && <TriangleAlert className="mr-1 inline size-3.5" />}
+                        {formatDate(item.scheduledDate)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <StatusBadge status={item.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent moves</CardTitle>
-              <CardDescription>Latest validated stock movements.</CardDescription>
-              <CardAction>
-                <Button variant="link" size="sm" asChild>
-                  <Link href="/move-history">View all</Link>
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              {!data ? (
-                <Skeleton className="h-24" />
-              ) : data.recentMoves.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No validated moves yet.</p>
-              ) : (
-                <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
-                  {data.recentMoves.map((move) => (
-                    <Link
-                      key={move.id}
-                      href={operationPath(move.type, move.operationId)}
-                      className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition hover:bg-muted/60"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{move.productName}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          <span className="font-mono">{move.reference}</span> · {formatRelative(move.date)}
-                        </p>
-                      </div>
-                      <MoveQuantity direction={move.direction} quantity={move.quantity} uom={move.uom} />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent moves</CardTitle>
+                <CardDescription>Latest validated stock movements.</CardDescription>
+                <CardAction>
+                  <Button variant="link" size="sm" asChild>
+                    <Link href="/move-history">View all</Link>
+                  </Button>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                {!data ? (
+                  <Skeleton className="h-24" />
+                ) : data.recentMoves.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No validated moves yet.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {data.recentMoves.map((move) => (
+                      <Link
+                        key={move.id}
+                        href={operationPath(move.type, move.operationId)}
+                        className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition hover:bg-muted/60"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{move.productName}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            <span className="font-mono">{move.reference}</span> · {formatRelative(move.date)}
+                          </p>
+                        </div>
+                        <MoveQuantity direction={move.direction} quantity={move.quantity} uom={move.uom} />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <TeamActivity />
+          </div>
         </div>
 
         <div className="space-y-6">
+          <MyWork />
           {data ? <ActivityChart data={data.activity} /> : <Skeleton className="h-64 rounded-xl" />}
           <Card>
             <CardHeader>
@@ -413,7 +419,6 @@ export function DashboardView() {
               )}
             </CardContent>
           </Card>
-
         </div>
       </div>
     </div>

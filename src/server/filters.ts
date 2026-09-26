@@ -24,5 +24,6 @@ export function operationFilters(req: NextRequest): OperationFilters {
     late: searchParam(req, "late") === "1",
     responsible: searchParam(req, "responsible"),
     today: todayParam(req),
+    sort: searchParam(req, "sort") === "schedule" ? "schedule" : "recent",
   };
 }

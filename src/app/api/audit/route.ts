@@ -4,7 +4,7 @@ import { can } from "@/lib/permissions";
 import { objectId } from "@/lib/validation/common";
 import { forbidden } from "@/server/errors";
 import { pageParams, parseBody, route, searchParam } from "@/server/http";
-import { getEntityActivity, listActivity, logNote } from "@/server/services/audit";
+import { getEntityActivity, getTeamFeed, listActivity, logNote } from "@/server/services/audit";
 
 const noteSchema = z.object({
   entityType: z.enum(["operation", "product"], { error: "Notes can be added to operations and products" }),
@@ -14,9 +14,11 @@ const noteSchema = z.object({
 
 /**
  * `?entityType=operation&entityId=…` returns the timeline of one record (any role).
- * Without `entityId`, the full audit trail is returned (managers only).
+ * `?feed=team` returns the latest operation milestones for the dashboard (any role).
+ * Otherwise the full audit trail is returned (managers only).
  */
 export const GET = route({}, async ({ req, user }) => {
+  if (searchParam(req, "feed") === "team") return getTeamFeed();
   const entityType = searchParam(req, "entityType") as AuditEntity | undefined;
   const entityId = searchParam(req, "entityId");
   if (entityId && entityType && AUDIT_ENTITIES.includes(entityType)) {

@@ -20,6 +20,7 @@ const auditLogSchema = new Schema(
 
 auditLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
 auditLogSchema.index({ createdAt: -1 });
+auditLogSchema.index({ entityType: 1, createdAt: -1 });
 auditLogSchema.index({ user: 1, createdAt: -1 });
 
 export type AuditLogSchema = InferSchemaType<typeof auditLogSchema>;

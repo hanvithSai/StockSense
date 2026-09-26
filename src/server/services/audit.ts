@@ -81,6 +81,18 @@ export async function getEntityActivity(entityType: AuditEntity, entityId: strin
   return logs.map(toDTO);
 }
 
+/** Milestones worth showing in the team feed (pick, pack and field edits stay on each record's timeline). */
+const FEED_ACTIONS = ["created", "ready", "waiting", "validated", "cancelled", "reset", "note"];
+
+/** Latest operation milestones and notes by anyone: the dashboard's team feed, visible to every role. */
+export async function getTeamFeed(limit = 6): Promise<AuditLogDTO[]> {
+  const logs = await AuditLog.find({ entityType: "operation", action: { $in: FEED_ACTIONS } })
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit)
+    .lean<AuditLogRecord[]>();
+  return logs.map(toDTO);
+}
+
 export interface ActivityFilters {
   entityType?: string;
   user?: string;

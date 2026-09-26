@@ -27,6 +27,8 @@ export interface OperationFilters {
   responsible?: string;
   /** Client's local date (`YYYY-MM-DD`) used for "late" / "upcoming" comparisons. */
   today: string;
+  /** `schedule` lists the most urgent first; the default is newest first. */
+  sort?: "recent" | "schedule";
 }
 
 const toId = (value?: string) => (value && isValidObjectId(value) ? new Types.ObjectId(value) : undefined);
@@ -110,7 +112,7 @@ export async function listOperations(
 
   const [items, total, counts] = await Promise.all([
     Operation.find(match)
-      .sort({ createdAt: -1 })
+      .sort(filters.sort === "schedule" ? { scheduledDate: 1, createdAt: 1 } : { createdAt: -1 })
       .skip(paging.skip)
       .limit(paging.limit)
       .lean<OperationLean[]>(),
