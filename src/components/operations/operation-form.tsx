@@ -419,10 +419,10 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                   Save
                 </ActionButton>
               )}
-              {status === "done" && (
+              {(status === "done" || (type === "adjustment" && status === "draft")) && (
                 <Button type="button" variant="outline" asChild>
                   <Link href={`/print/operations/${operation!.id}`} target="_blank">
-                    <Printer /> Print
+                    <Printer /> {status === "done" ? "Print" : "Count sheet"}
                   </Link>
                 </Button>
               )}

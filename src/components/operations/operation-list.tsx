@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
+import { ClipboardList, Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { TableSkeleton } from "@/components/common/table-skeleton";
 import { ViewToggle, type ViewMode } from "@/components/common/view-toggle";
 import { useSession } from "@/components/layout/session-context";
 import { OperationKanban } from "@/components/operations/operation-kanban";
+import { CountLocationDialog } from "@/components/stock/count-location-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,6 +66,7 @@ export function OperationList({ type }: { type: OperationType }) {
   const [warehouse, setWarehouse] = useState(searchParams.get("warehouse") ?? "");
   const [late, setLate] = useState(searchParams.get("late") === "1");
   const [page, setPage] = useState(1);
+  const [counting, setCounting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: warehouses = [] } = useWarehouses();
 
@@ -104,11 +106,18 @@ export function OperationList({ type }: { type: OperationType }) {
         description={DESCRIPTIONS[type]}
         actions={
           can(manageCapability(type)) && (
-            <Button asChild>
-              <Link href={`${operationPath(type)}/new`}>
-                <Plus /> New
-              </Link>
-            </Button>
+            <>
+              {isAdjustment && (
+                <Button variant="outline" onClick={() => setCounting(true)}>
+                  <ClipboardList /> Count location
+                </Button>
+              )}
+              <Button asChild>
+                <Link href={`${operationPath(type)}/new`}>
+                  <Plus /> New
+                </Link>
+              </Button>
+            </>
           )
         }
       />
@@ -239,6 +248,8 @@ export function OperationList({ type }: { type: OperationType }) {
           </>
         )}
       </Card>
+
+      {isAdjustment && <CountLocationDialog open={counting} onOpenChange={setCounting} />}
     </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Boxes, ChevronRight, Download, RefreshCcw } from "lucide-react";
+import { Boxes, ChevronRight, ClipboardList, Download, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
@@ -13,6 +13,7 @@ import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
 import { ProductAvatar } from "@/components/products/product-avatar";
+import { CountLocationDialog } from "@/components/stock/count-location-dialog";
 import { UpdateStockDialog, type StockTarget } from "@/components/stock/update-stock-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,6 +37,7 @@ export function StockView() {
   const [category, setCategory] = useState(searchParams.get("category") ?? "");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState<StockTarget | null>(null);
+  const [counting, setCounting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: warehouses = [] } = useWarehouses();
   const { data: locations = [] } = useLocations();
@@ -90,9 +92,16 @@ export function StockView() {
         title="Stock"
         description="Available stock per product and location. Update counts directly from here; every change is logged."
         actions={
-          <Button variant="outline" onClick={exportCsv} disabled={!data?.length}>
-            <Download /> Export CSV
-          </Button>
+          <>
+            <Button variant="outline" onClick={exportCsv} disabled={!data?.length}>
+              <Download /> Export CSV
+            </Button>
+            {canMove && (
+              <Button variant="outline" onClick={() => setCounting(true)}>
+                <ClipboardList /> Count location
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -254,6 +263,7 @@ export function StockView() {
       </Card>
 
       <UpdateStockDialog target={target} onClose={() => setTarget(null)} />
+      <CountLocationDialog open={counting} onOpenChange={setCounting} defaultLocation={location} />
     </>
   );
 }

@@ -46,6 +46,8 @@ export function PrintDocument({ id }: { id: string }) {
 
   const meta = OPERATION_META[op.type];
   const isAdjustment = op.type === "adjustment";
+  // A draft adjustment prints as a blind count sheet: recorded stock stays hidden from the counter.
+  const countSheet = isAdjustment && op.status === "draft";
 
   return (
     <div className="min-h-svh bg-neutral-100 py-8 text-neutral-900 print:bg-white print:py-0">
@@ -61,7 +63,7 @@ export function PrintDocument({ id }: { id: string }) {
             <p className="text-sm text-neutral-500">{op.warehouse.name}</p>
           </div>
           <div className="flex flex-col items-end text-right">
-            <p className="text-xs tracking-wide text-neutral-500 uppercase">{meta.label}</p>
+            <p className="text-xs tracking-wide text-neutral-500 uppercase">{countSheet ? "Stock count sheet" : meta.label}</p>
             <p className="font-mono text-2xl font-semibold">{op.reference}</p>
             <p className="mt-1 text-sm">{STATUS_LABELS[op.status]}</p>
             <Barcode value={op.reference} className="mt-2 h-12 w-44" />
@@ -71,10 +73,16 @@ export function PrintDocument({ id }: { id: string }) {
         <dl className="grid grid-cols-2 gap-x-8 gap-y-4 py-6 text-sm sm:grid-cols-3">
           {op.contact && <Detail label={op.type === "receipt" ? "Received from" : "Customer"} value={op.contact} />}
           {op.deliveryAddress && <Detail label="Delivery address" value={op.deliveryAddress} />}
-          <Detail label="From" value={op.sourceLocation.fullName} />
-          <Detail label="To" value={op.destLocation.fullName} />
-          <Detail label="Scheduled" value={formatDate(op.scheduledDate)} />
-          <Detail label="Validated" value={op.doneAt ? formatDateTime(op.doneAt) : "Not validated"} />
+          {countSheet ? (
+            <Detail label="Location to count" value={op.destLocation.fullName} />
+          ) : (
+            <>
+              <Detail label="From" value={op.sourceLocation.fullName} />
+              <Detail label="To" value={op.destLocation.fullName} />
+            </>
+          )}
+          <Detail label={countSheet ? "Count date" : "Scheduled"} value={formatDate(op.scheduledDate)} />
+          {!countSheet && <Detail label="Validated" value={op.doneAt ? formatDateTime(op.doneAt) : "Not validated"} />}
           <Detail label="Responsible" value={op.responsible?.name} />
         </dl>
 
@@ -83,10 +91,11 @@ export function PrintDocument({ id }: { id: string }) {
             <tr className="border-y bg-neutral-50 text-left">
               <th className="px-3 py-2 font-semibold">#</th>
               <th className="px-3 py-2 font-semibold">Product</th>
-              {isAdjustment && <th className="px-3 py-2 text-right font-semibold">Recorded</th>}
+              {isAdjustment && !countSheet && <th className="px-3 py-2 text-right font-semibold">Recorded</th>}
               <th className="px-3 py-2 text-right font-semibold">{isAdjustment ? "Counted" : "Quantity"}</th>
-              {isAdjustment && <th className="px-3 py-2 text-right font-semibold">Difference</th>}
+              {isAdjustment && !countSheet && <th className="px-3 py-2 text-right font-semibold">Difference</th>}
               <th className="px-3 py-2 font-semibold">Unit</th>
+              {countSheet && <th className="px-3 py-2 font-semibold">Remarks</th>}
             </tr>
           </thead>
           <tbody>
@@ -96,15 +105,22 @@ export function PrintDocument({ id }: { id: string }) {
                 <td className="px-3 py-2">
                   <span className="font-mono text-xs text-neutral-500">[{line.sku}]</span> {line.productName}
                 </td>
-                {isAdjustment && <td className="px-3 py-2 text-right tabular">{formatQty(line.systemQty)}</td>}
-                <td className="px-3 py-2 text-right font-medium tabular">{formatQty(line.quantity)}</td>
-                {isAdjustment && (
+                {isAdjustment && !countSheet && <td className="px-3 py-2 text-right tabular">{formatQty(line.systemQty)}</td>}
+                {countSheet ? (
+                  <td className="px-3 py-3">
+                    <span className="ml-auto block h-7 w-24 rounded border border-neutral-400" aria-label="Counted quantity" />
+                  </td>
+                ) : (
+                  <td className="px-3 py-2 text-right font-medium tabular">{formatQty(line.quantity)}</td>
+                )}
+                {isAdjustment && !countSheet && (
                   <td className="px-3 py-2 text-right tabular">
                     {line.delta !== null && line.delta > 0 ? "+" : ""}
                     {formatQty(line.delta)}
                   </td>
                 )}
                 <td className="px-3 py-2">{line.uom}</td>
+                {countSheet && <td className="px-3 py-3"><span className="block h-7 w-full border-b border-neutral-300" /></td>}
               </tr>
             ))}
           </tbody>
@@ -118,8 +134,8 @@ export function PrintDocument({ id }: { id: string }) {
         )}
 
         <footer className="mt-16 grid grid-cols-2 gap-16 text-sm">
-          <div className="border-t pt-2 text-neutral-500">Prepared by</div>
-          <div className="border-t pt-2 text-neutral-500">{op.type === "receipt" ? "Received by" : "Signature"}</div>
+          <div className="border-t pt-2 text-neutral-500">{countSheet ? "Counted by" : "Prepared by"}</div>
+          <div className="border-t pt-2 text-neutral-500">{countSheet ? "Checked by" : op.type === "receipt" ? "Received by" : "Signature"}</div>
         </footer>
       </article>
     </div>

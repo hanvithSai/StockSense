@@ -598,6 +598,35 @@ export async function createAppliedAdjustment(
   return { id: op._id.toString(), reference, promoted };
 }
 
+/**
+ * Starts a full count of a location: a draft adjustment listing every product stored there,
+ * with the counted quantity pre-filled to the recorded one so only differences need typing.
+ */
+export async function startLocationCount(location: string, actor: Actor): Promise<string> {
+  const record = await Location.findOne({ _id: location, type: "internal" }).lean<LocationRecord>();
+  if (!record) throw validationError({ location: "Select a valid internal location" });
+  const quants = await StockQuant.find({ location: record._id, quantity: { $gt: 0 } })
+    .sort({ quantity: -1 })
+    .lean<{ product: Types.ObjectId; quantity: number }[]>();
+  if (!quants.length) throw conflict(`${record.fullName} holds no stock to count`);
+  if (quants.length > 100) throw conflict(`${record.fullName} holds more than 100 products; count it in parts from the Adjustments page`);
+
+  return createOperation(
+    {
+      type: "adjustment",
+      sourceLocation: "",
+      destLocation: record._id.toString(),
+      contact: "",
+      deliveryAddress: "",
+      scheduledDate: todayISO(),
+      responsible: actor.id,
+      notes: `Full count of ${record.fullName}`,
+      lines: quants.map((quant) => ({ product: quant.product.toString(), quantity: quant.quantity })),
+    },
+    actor,
+  );
+}
+
 export async function applyStockCount(
   input: { product: string; location: string; countedQty: number; note: string },
   actor: Actor,

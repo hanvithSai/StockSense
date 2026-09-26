@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Boxes, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Boxes, ClipboardList, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import { TableSkeleton } from "@/components/common/table-skeleton";
 import { applyServerErrors, TextField } from "@/components/forms/fields";
 import { SelectField } from "@/components/forms/select-field";
 import { useSession } from "@/components/layout/session-context";
+import { CountLocationDialog } from "@/components/stock/count-location-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -106,12 +107,14 @@ function LocationForm({
 export function LocationsView() {
   const { can } = useSession();
   const canWrite = can("master:write");
+  const canCount = can("stock:move");
   const searchParams = useSearchParams();
   const [warehouseFilter, setWarehouseFilter] = useState(searchParams.get("warehouse") ?? "");
   const { data: warehouses = [] } = useWarehouses();
   const { data, isLoading } = useLocations();
   const [editing, setEditing] = useState<LocationDTO | "new" | null>(null);
   const [deleting, setDeleting] = useState<LocationDTO | null>(null);
+  const [counting, setCounting] = useState<LocationDTO | null>(null);
   const remove = useApiMutation<string>({
     mutationFn: (id) => api(`/api/locations/${id}`, { method: "DELETE" }),
     invalidate: [["locations"], ["warehouses"]],
@@ -150,7 +153,7 @@ export function LocationsView() {
               <TableHead>Location</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Warehouse</TableHead>
-              <TableHead className="w-32 text-right">Actions</TableHead>
+              <TableHead className="w-40 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,27 +180,39 @@ export function LocationsView() {
                   <TableCell className="text-muted-foreground">{location.warehouse?.name}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon-sm" asChild aria-label={`Stock at ${location.fullName}`}>
+                      <Button variant="ghost" size="icon-sm" asChild aria-label={`Stock at ${location.fullName}`} title="View stock">
                         <Link href={`/stock?location=${location.id}`}>
                           <Boxes />
                         </Link>
                       </Button>
-                    {canWrite && (
-                      <>
-                        <Button variant="ghost" size="icon-sm" onClick={() => setEditing(location)} aria-label={`Edit ${location.fullName}`}>
-                          <Pencil />
-                        </Button>
+                      {canCount && (
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          onClick={() => setDeleting(location)}
-                          disabled={location.isDefault}
-                          aria-label={`Delete ${location.fullName}`}
+                          onClick={() => setCounting(location)}
+                          aria-label={`Count ${location.fullName}`}
+                          title="Count this location"
                         >
-                          <Trash2 />
+                          <ClipboardList />
                         </Button>
-                      </>
-                    )}
+                      )}
+                      {canWrite && (
+                        <>
+                          <Button variant="ghost" size="icon-sm" onClick={() => setEditing(location)} aria-label={`Edit ${location.fullName}`} title="Edit">
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setDeleting(location)}
+                            disabled={location.isDefault}
+                            aria-label={`Delete ${location.fullName}`}
+                            title="Delete"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -232,6 +247,12 @@ export function LocationsView() {
         confirmLabel="Delete"
         destructive
         onConfirm={() => deleting && remove.mutate(deleting.id)}
+      />
+
+      <CountLocationDialog
+        open={counting !== null}
+        onOpenChange={(open) => !open && setCounting(null)}
+        defaultLocation={counting?.id}
       />
     </>
   );
