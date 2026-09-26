@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { useEffect } from "react";
 import { Logo } from "@/components/brand/logo";
+import { Barcode } from "@/components/products/barcode";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api-client";
@@ -59,10 +60,11 @@ export function PrintDocument({ id }: { id: string }) {
             <Logo />
             <p className="text-sm text-neutral-500">{op.warehouse.name}</p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end text-right">
             <p className="text-xs tracking-wide text-neutral-500 uppercase">{meta.label}</p>
             <p className="font-mono text-2xl font-semibold">{op.reference}</p>
             <p className="mt-1 text-sm">{STATUS_LABELS[op.status]}</p>
+            <Barcode value={op.reference} className="mt-2 h-12 w-44" />
           </div>
         </header>
 
