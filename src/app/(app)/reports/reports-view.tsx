@@ -188,7 +188,7 @@ export function ReportsView() {
             />
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Stock movement value</CardTitle>
@@ -268,7 +268,7 @@ export function ReportsView() {
             </Card>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Top products shipped</CardTitle>
@@ -334,7 +334,7 @@ export function ReportsView() {
             </Card>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Operations by status</CardTitle>

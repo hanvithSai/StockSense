@@ -133,7 +133,7 @@ export function ProductDetail({ id }: { id: string }) {
             <StockLevelChart rows={ledger.data} uom={data.uom} minQty={data.minQty} />
           )}
 
-          <div className="grid gap-6 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <Card className="gap-0 pb-0 lg:col-span-3">
               <CardHeader className="border-b pb-4">
                 <CardTitle>Stock by location</CardTitle>
@@ -214,7 +214,7 @@ export function ProductDetail({ id }: { id: string }) {
             </Card>
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="gap-0 pb-0">
             <CardHeader className="border-b pb-4">
               <CardTitle className="flex items-center gap-2">

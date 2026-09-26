@@ -271,7 +271,7 @@ export function DashboardView() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-3 xl:items-start">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-start">
         <div className="space-y-6 xl:col-span-2">
           <Card className="gap-0 pb-0">
           <CardHeader className="gap-3 border-b pb-4">

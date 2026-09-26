@@ -54,7 +54,7 @@ export function OperationDetail({ type, id }: { type: OperationType; id: string 
   if (data && data.type !== type) redirect(operationPath(data.type, data.id));
   if (!data || !ready) return <FormSkeleton />;
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       {/* Remount the form whenever the server state changes so it always reflects the saved record. */}
       <OperationForm key={`${data.id}-${data.updatedAt}`} type={type} operation={data} />
       <ActivityTimeline entityType="operation" entityId={data.id} className="self-start xl:sticky xl:top-20 xl:mt-10" />
