@@ -34,6 +34,8 @@ The simplified flow from the problem statement is included in the demo data: rec
 | ![Dashboard](public/screens/dashboard.jpg) | ![Delivery order](public/screens/operation.jpg) |
 | **Reports** | **Stock** |
 | ![Reports](public/screens/reports.jpg) | ![Stock](public/screens/stock.jpg) |
+| **Calendar view** | **Backorder: ship what is in stock** |
+| ![Calendar view of delivery orders](public/screens/calendar.jpg) | ![Ship available dialog creating a backorder](public/screens/backorder.jpg) |
 
 ## Tech stack
 
