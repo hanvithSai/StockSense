@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCategories, useLocations, useWarehouses } from "@/hooks/use-reference-data";
 import { api, qs } from "@/lib/api-client";
 import {
@@ -243,7 +243,7 @@ export function DashboardView() {
             value={kpis.pendingReceipts}
             hint={`${data.operations.receipt.ready} ready to receive`}
             icon={ArrowDownToLine}
-            tone="bg-success/12 text-emerald-600 dark:text-emerald-400"
+            tone="bg-success/12 text-emerald-700 dark:text-emerald-400"
             href="/operations/receipts"
           />
           <Kpi
@@ -259,7 +259,7 @@ export function DashboardView() {
             value={kpis.scheduledTransfers}
             hint={`${data.operations.internal.ready} ready to move`}
             icon={ArrowLeftRight}
-            tone="bg-info/12 text-sky-600 dark:text-sky-400"
+            tone="bg-info/12 text-sky-700 dark:text-sky-400"
             href="/operations/transfers"
           />
         </div>
@@ -276,19 +276,19 @@ export function DashboardView() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-start">
         <div className="space-y-6 xl:col-span-2">
           <Card className="gap-0 pb-0">
-            <CardHeader className="gap-3 border-b pb-4">
-              <CardTitle>Operations</CardTitle>
-              <CardDescription>Filter by document type, status, warehouse, location or category.</CardDescription>
-              <CardAction>
-                <FilterSelect
-                  value={status}
-                  onChange={setStatus}
-                  allLabel="All statuses"
-                  options={OPERATION_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
-                  className="sm:w-36"
-                />
-              </CardAction>
-              <Tabs value={docType} onValueChange={(value) => setDocType(value as OperationType | "all")}>
+            <Tabs value={docType} onValueChange={(value) => setDocType(value as OperationType | "all")} className="gap-0">
+              <CardHeader className="gap-3 border-b pb-4">
+                <CardTitle>Operations</CardTitle>
+                <CardDescription>Filter by document type, status, warehouse, location or category.</CardDescription>
+                <CardAction>
+                  <FilterSelect
+                    value={status}
+                    onChange={setStatus}
+                    allLabel="All statuses"
+                    options={OPERATION_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+                    className="sm:w-36"
+                  />
+                </CardAction>
                 <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
                   <TabsTrigger value="all">All</TabsTrigger>
                   {OPERATION_TYPES.map((type) => (
@@ -297,45 +297,47 @@ export function DashboardView() {
                     </TabsTrigger>
                   ))}
                 </TabsList>
-              </Tabs>
-            </CardHeader>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="hidden sm:table-cell">Type</TableHead>
-                  <TableHead className="hidden md:table-cell">Contact / Products</TableHead>
-                  <TableHead>Scheduled</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {operations.isLoading ? (
-                  <TableSkeleton columns={5} rows={4} />
-                ) : !operations.data?.items.length ? (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                      No operations match these filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  operations.data.items.map((item) => (
-                    <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(operationPath(item.type, item.id))}>
-                      <TableCell className="font-mono text-sm font-semibold">{item.reference}</TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{OPERATION_META[item.type].label}</TableCell>
-                      <TableCell className="hidden max-w-56 truncate md:table-cell">{item.contact || item.productSummary}</TableCell>
-                      <TableCell className={cn("whitespace-nowrap text-sm", item.isLate && "font-medium text-destructive")}>
-                        {item.isLate && <TriangleAlert className="mr-1 inline size-3.5" />}
-                        {formatDate(item.scheduledDate)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <StatusBadge status={item.status} />
-                      </TableCell>
+              </CardHeader>
+              <TabsContent value={docType}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reference</TableHead>
+                      <TableHead className="hidden sm:table-cell">Type</TableHead>
+                      <TableHead className="hidden md:table-cell">Contact / Products</TableHead>
+                      <TableHead>Scheduled</TableHead>
+                      <TableHead className="text-right">Status</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {operations.isLoading ? (
+                      <TableSkeleton columns={5} rows={4} />
+                    ) : !operations.data?.items.length ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                          No operations match these filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      operations.data.items.map((item) => (
+                        <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(operationPath(item.type, item.id))}>
+                          <TableCell className="font-mono text-sm font-semibold">{item.reference}</TableCell>
+                          <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{OPERATION_META[item.type].label}</TableCell>
+                          <TableCell className="hidden max-w-56 truncate md:table-cell">{item.contact || item.productSummary}</TableCell>
+                          <TableCell className={cn("whitespace-nowrap text-sm", item.isLate && "font-medium text-destructive")}>
+                            {item.isLate && <TriangleAlert className="mr-1 inline size-3.5" />}
+                            {formatDate(item.scheduledDate)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <StatusBadge status={item.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+            </Tabs>
           </Card>
 
           <div className="grid gap-6 md:grid-cols-2">

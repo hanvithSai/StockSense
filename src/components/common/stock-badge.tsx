@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 
 const LABELS: Record<StockStatus, string> = { ok: "In stock", low: "Low stock", out: "Out of stock" };
 const STYLES: Record<StockStatus, string> = {
-  ok: "bg-success/12 text-emerald-700 ring-success/30 dark:text-emerald-300",
-  low: "bg-warning/15 text-amber-700 ring-warning/30 dark:text-amber-300",
+  ok: "bg-success/12 text-emerald-800 ring-success/30 dark:text-emerald-300",
+  low: "bg-warning/15 text-amber-800 ring-warning/30 dark:text-amber-300",
   out: "bg-destructive/10 text-destructive ring-destructive/25",
 };
 

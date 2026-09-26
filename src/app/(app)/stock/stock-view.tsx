@@ -131,7 +131,9 @@ export function StockView() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8" />
+              <TableHead className="w-8">
+                <span className="sr-only">Locations</span>
+              </TableHead>
               <SortableHead label="Product" sortKey="name" sort={sort} onSort={setSort} />
               <SortableHead label="Per unit cost" sortKey="costPrice" sort={sort} onSort={setSort} className="hidden text-right md:table-cell" />
               <SortableHead label="On hand" sortKey="onHand" sort={sort} onSort={setSort} className="text-right" />
@@ -187,7 +189,7 @@ export function StockView() {
                         {formatQty(row.forecast)}
                         {(row.incoming > 0 || row.outgoing > 0) && (
                           <p className="text-xs text-muted-foreground">
-                            {row.incoming > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{formatQty(row.incoming)}</span>}
+                            {row.incoming > 0 && <span className="text-emerald-700 dark:text-emerald-400">+{formatQty(row.incoming)}</span>}
                             {row.incoming > 0 && row.outgoing > 0 && " · "}
                             {row.outgoing > 0 && <span className="text-destructive">−{formatQty(row.outgoing)}</span>}
                           </p>

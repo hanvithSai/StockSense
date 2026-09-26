@@ -176,8 +176,8 @@ export function ImportProductsDialog({ open, onOpenChange }: { open: boolean; on
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3 text-center">
               {[
-                { label: "Created", value: result.created, tone: "text-emerald-600 dark:text-emerald-400" },
-                { label: "Updated", value: result.updated, tone: "text-sky-600 dark:text-sky-400" },
+                { label: "Created", value: result.created, tone: "text-emerald-700 dark:text-emerald-400" },
+                { label: "Updated", value: result.updated, tone: "text-sky-700 dark:text-sky-400" },
                 { label: "Skipped (existing SKU)", value: result.skipped, tone: "text-muted-foreground" },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl border p-3">
@@ -284,7 +284,7 @@ export function ImportProductsDialog({ open, onOpenChange }: { open: boolean; on
                             <CircleX className="mt-0.5 size-3.5 shrink-0" /> {row.error}
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                          <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
                             <CircleCheck className="size-3.5" /> Ready
                           </span>
                         )}

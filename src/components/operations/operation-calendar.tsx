@@ -36,7 +36,7 @@ function Chip({ item }: { item: OperationListItemDTO }) {
       className={cn(
         "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ring-1 ring-inset transition hover:ring-primary/50",
         STATUS_STYLES[item.status],
-        item.status === "cancelled" && "line-through opacity-60",
+        item.status === "cancelled" && "line-through",
       )}
     >
       {item.isLate && <TriangleAlert className="size-3 shrink-0 text-destructive" />}
@@ -127,7 +127,7 @@ export function OperationCalendar({ type, filters }: { type: OperationType; filt
                       <span
                         className={cn(
                           "flex size-6 items-center justify-center rounded-full text-xs tabular",
-                          key === today ? "bg-primary font-semibold text-primary-foreground" : !inMonth && "text-muted-foreground/60",
+                          key === today ? "bg-primary font-semibold text-primary-foreground" : !inMonth && "text-muted-foreground",
                         )}
                       >
                         {format(day, "d")}

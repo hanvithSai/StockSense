@@ -48,8 +48,8 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
 ];
 
 const WORKFLOW = [
-  { step: "Receive", icon: ArrowDownToLine, detail: "100 kg steel from the vendor", change: "+100", balance: "100", tone: "text-emerald-600 dark:text-emerald-400" },
-  { step: "Move", icon: ArrowLeftRight, detail: "40 kg main store → production rack", change: "0", balance: "100", tone: "text-sky-600 dark:text-sky-400" },
+  { step: "Receive", icon: ArrowDownToLine, detail: "100 kg steel from the vendor", change: "+100", balance: "100", tone: "text-emerald-700 dark:text-emerald-400" },
+  { step: "Move", icon: ArrowLeftRight, detail: "40 kg main store → production rack", change: "0", balance: "100", tone: "text-sky-700 dark:text-sky-400" },
   { step: "Deliver", icon: Truck, detail: "20 kg shipped to the customer", change: "−20", balance: "80", tone: "text-rose-600 dark:text-rose-400" },
   { step: "Adjust", icon: ClipboardCheck, detail: "3 kg damaged, count corrected", change: "−3", balance: "77", tone: "text-rose-600 dark:text-rose-400" },
 ];
@@ -265,7 +265,7 @@ export function LandingPage({ signedIn, stats, demo }: LandingPageProps) {
                     <p className="font-semibold">Stock ledger · Steel</p>
                     <p className="text-xs text-muted-foreground">STEEL001 · kg</p>
                   </div>
-                  <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">Low stock</span>
+                  <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">Low stock</span>
                 </div>
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-left text-xs text-muted-foreground">

@@ -198,7 +198,7 @@ export function OperationList({ type }: { type: OperationType }) {
                   )}
                 >
                   {value ? STATUS_LABELS[value] : "All"}
-                  <span className={cn("text-xs tabular", status === value ? "opacity-80" : "opacity-60")}>{count}</span>
+                  <span className={cn("text-xs tabular", status === value && "opacity-80")}>{count}</span>
                 </button>
               );
             })}

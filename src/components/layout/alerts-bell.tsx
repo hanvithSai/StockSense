@@ -29,7 +29,7 @@ export function AlertsBell() {
         <Button variant="ghost" size="icon" className="relative" aria-label={`${count} stock alerts`}>
           <Bell />
           {count > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-semibold text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-semibold text-white dark:bg-red-700">
               {count > 99 ? "99+" : count}
             </span>
           )}

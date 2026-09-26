@@ -116,7 +116,7 @@ export function AppSidebar() {
   });
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" role="navigation" aria-label="Main navigation">
       <SidebarHeader>
         <Link
           href="/dashboard"

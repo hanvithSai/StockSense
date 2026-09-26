@@ -496,7 +496,9 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
       <Card>
         <CardHeader className="gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="font-mono text-2xl tracking-tight">{operation?.reference ?? `New ${meta.label}`}</CardTitle>
+            <CardTitle className="font-mono text-2xl tracking-tight">
+              <h1>{operation?.reference ?? `New ${meta.label}`}</h1>
+            </CardTitle>
             {operation?.isLate && (
               <Badge variant="destructive">
                 <TriangleAlert /> Late
@@ -615,7 +617,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Products</h3>
+              <h2 className="text-sm font-semibold">Products</h2>
               <div className="flex flex-wrap items-center gap-3">
                 {showAvailability && stockLocation && (
                   <span className="text-xs text-muted-foreground">
@@ -655,7 +657,11 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                     <TableHead className="w-36 text-right">{type === "adjustment" ? "Counted" : "Quantity"}</TableHead>
                     {type === "adjustment" && <TableHead className="text-right">Difference</TableHead>}
                     {pickable && <TableHead className="w-20 text-center">Picked</TableHead>}
-                    {structureEditable && <TableHead className="w-10" />}
+                    {structureEditable && (
+                      <TableHead className="w-10">
+                        <span className="sr-only">Remove</span>
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -739,7 +745,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                           <TableCell
                             className={cn(
                               "text-right align-top tabular font-medium",
-                              difference !== null && difference > 0 && "text-emerald-600 dark:text-emerald-400",
+                              difference !== null && difference > 0 && "text-emerald-700 dark:text-emerald-400",
                               difference !== null && difference < 0 && "text-destructive",
                             )}
                           >

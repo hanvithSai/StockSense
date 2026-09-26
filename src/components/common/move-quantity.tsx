@@ -4,7 +4,7 @@ import type { MoveDirection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const STYLES: Record<MoveDirection, string> = {
-  in: "text-emerald-600 dark:text-emerald-400",
+  in: "text-emerald-700 dark:text-emerald-400",
   out: "text-destructive",
   internal: "text-sky-700 dark:text-sky-300",
 };

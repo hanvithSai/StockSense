@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 
 export const STATUS_STYLES: Record<OperationStatus, string> = {
   draft: "bg-muted text-muted-foreground ring-border",
-  waiting: "bg-warning/15 text-amber-700 ring-warning/30 dark:text-amber-300",
+  waiting: "bg-warning/15 text-amber-800 ring-warning/30 dark:text-amber-300",
   ready: "bg-info/12 text-sky-700 ring-info/30 dark:text-sky-300",
-  done: "bg-success/12 text-emerald-700 ring-success/30 dark:text-emerald-300",
+  done: "bg-success/12 text-emerald-800 ring-success/30 dark:text-emerald-300",
   cancelled: "bg-destructive/10 text-destructive ring-destructive/25",
 };
 

@@ -147,7 +147,11 @@ export function ProductDetail({ id }: { id: string }) {
                     <TableHead className="text-right">On hand</TableHead>
                     <TableHead className="text-right">Reserved</TableHead>
                     <TableHead className="text-right">Free</TableHead>
-                    {can("stock:move") && <TableHead className="w-10" />}
+                    {can("stock:move") && (
+                      <TableHead className="w-10">
+                        <span className="sr-only">Update stock</span>
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -261,7 +265,7 @@ export function ProductDetail({ id }: { id: string }) {
                       <TableCell
                         className={cn(
                           "text-right tabular font-medium",
-                          row.change > 0 && "text-emerald-600 dark:text-emerald-400",
+                          row.change > 0 && "text-emerald-700 dark:text-emerald-400",
                           row.change < 0 && "text-destructive",
                         )}
                       >

@@ -63,7 +63,7 @@ export function ProductForecast({ productId, uom, minQty }: { productId: string;
                     </p>
                   </div>
                   <div className="shrink-0 text-right tabular">
-                    <p className={cn("text-sm font-medium", row.change > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                    <p className={cn("text-sm font-medium", row.change > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive")}>
                       {row.change > 0 ? "+" : "−"}
                       {formatQty(Math.abs(row.change))}
                     </p>
