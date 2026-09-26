@@ -33,11 +33,12 @@ The simplified flow from the problem statement is included in the demo data: rec
 |---|---|
 | Real-time data | Everything comes from MongoDB through the REST API; lists, dashboard and badges refresh every 15 s and after every change |
 | Consistency | Every stock change runs in a MongoDB transaction; quantities can never go negative or below what is reserved |
-| Validation | One set of Zod schemas and business rules checks every form in the browser and every request on the server, backed by database constraints |
-| Security | Role-based capabilities enforced by the API, httpOnly signed sessions, bcrypt, hashed OTP codes, login lockout, same-origin checks, security headers |
+| Validation | One set of Zod schemas and business rules checks every form in the browser and every request on the server, backed by database constraints. Counted units (Units, Box, Pack, Dozen, Pair, Roll) only take whole numbers; kg, g, L, mL, m and cm take up to 3 decimals |
+| Security | Role-based capabilities enforced by the API, httpOnly signed sessions, bcrypt, hashed OTP codes, login lockout, same-origin checks, safe post-login redirects, security headers. An expired session returns you to the page you were on after signing in |
 | Accountability | Append-only audit trail with the author of every action; team notes on records |
 | Accessibility | Automated WCAG 2.1 AA checks (axe) on the main pages in light and dark themes: no violations |
 | Tests | Unit tests for rules and helpers; engine tests run the real stock engine on an in-memory MongoDB replica set |
+| Robustness | Every endpoint was probed with about 2,100 malformed or hostile requests (broken JSON, wrong types, invalid ids, operator-like values, control characters, huge numbers, foreign origins): each answer is data or a JSON error, never a server error |
 | Offline / local | `docker compose up -d` gives a local MongoDB replica set; no external service is required (SMTP optional) |
 
 ## Screenshots
