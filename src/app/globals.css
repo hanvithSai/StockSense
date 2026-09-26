@@ -174,10 +174,17 @@
 }
 
 @media print {
-  .no-print {
+  .no-print,
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"] {
     display: none !important;
   }
   body {
     background: white;
+  }
+  /* App pages (e.g. Reports) print as a clean report: full width, no card split across pages. */
+  [data-slot="card"] {
+    break-inside: avoid;
+    box-shadow: none;
   }
 }

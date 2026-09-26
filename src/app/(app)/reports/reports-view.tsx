@@ -8,6 +8,7 @@ import {
   Download,
   Gauge,
   PackageSearch,
+  Printer,
   Timer,
   Truck,
   Wallet,
@@ -148,6 +149,9 @@ export function ReportsView() {
             />
             <Button variant="outline" onClick={exportCsv} disabled={!data}>
               <Download /> Export
+            </Button>
+            <Button variant="outline" onClick={() => window.print()} disabled={!data}>
+              <Printer /> Print
             </Button>
           </>
         }
