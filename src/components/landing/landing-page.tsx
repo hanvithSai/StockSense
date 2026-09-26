@@ -39,12 +39,12 @@ const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: ClipboardCheck, title: "Stock adjustments", text: "Enter physical counts; the difference is applied and logged automatically." },
   { icon: History, title: "Stock ledger", text: "Every movement has a from and a to, a timestamp and an author. Nothing is lost." },
   { icon: Warehouse, title: "Multi-warehouse", text: "Warehouses with any number of locations, each with live on-hand and free stock." },
-  { icon: Bell, title: "Low stock alerts", text: "Reordering rules raise alerts and suggest how much to buy, with one-click receipts." },
+  { icon: Bell, title: "Forecasts and reordering", text: "Forecast = on hand + incoming − outgoing. Rules raise alerts and create replenishment receipts in one click." },
   { icon: ChartColumn, title: "Dashboards and reports", text: "Live KPIs, valuation, on-time rate, lead time, top movers and slow movers." },
-  { icon: ScanBarcode, title: "SKU search and filters", text: "Find any product or document with Ctrl K; filter by type, status, site or category." },
-  { icon: ScrollText, title: "Audit trail", text: "A complete, exportable history of who did what, on which record, and when." },
+  { icon: ScanBarcode, title: "Scan, search and filter", text: "Scan barcodes into any document, find anything with Ctrl K, filter by type, status, site or category." },
+  { icon: ScrollText, title: "Audit trail and notes", text: "An exportable history of who did what and when, plus team notes on every record." },
   { icon: FileSpreadsheet, title: "Excel in, Excel out", text: "Import products from CSV and export stock, moves and audit logs in one click." },
-  { icon: Printer, title: "Printable documents", text: "Goods received notes and delivery slips, ready to print and sign." },
+  { icon: Printer, title: "Barcodes and printing", text: "Print SKU barcode labels, goods received notes and delivery slips, ready to sign." },
 ];
 
 const WORKFLOW = [
@@ -293,7 +293,7 @@ export function LandingPage({ signedIn, stats, demo }: LandingPageProps) {
           <SectionHeading
             eyebrow="Product tour"
             title="Designed for the warehouse floor and the back office"
-            text="Clean screens, keyboard shortcuts, dark mode and a layout that works just as well on a tablet at the dock."
+            text="Drag-and-drop kanban boards, keyboard shortcuts, barcode scanning, dark mode and a layout that works on a tablet at the dock."
           />
           <Showcase />
         </section>
