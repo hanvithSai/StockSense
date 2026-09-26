@@ -236,6 +236,29 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
     setScan("");
   }
 
+  /** On a ready delivery, scanning a product's barcode marks its line as picked. */
+  async function pickScanned() {
+    const code = scan.trim().toUpperCase();
+    if (!code || !operation) return;
+    setScan("");
+    const line = operation.lines.find((item) => item.sku === code);
+    if (!line) {
+      toast.error(`${code} is not part of ${operation.reference}`);
+      return;
+    }
+    if (line.picked) {
+      toast.info(`${line.productName} is already picked`, { duration: 1500 });
+      return;
+    }
+    const remaining = operation.lines.filter((item) => !item.picked).length - 1;
+    if (await runAction("pick", { lineIds: [line.id], picked: true }, true)) {
+      toast.success(`${line.productName} picked`, {
+        description: remaining ? `${remaining} to go` : "Everything is picked: pack next",
+        duration: 2000,
+      });
+    }
+  }
+
   // Live availability at the location stock is taken from (or counted at, for adjustments).
   const stockLocation = type === "adjustment" ? destLocation : sourceLocation;
   const productIds = lines.map((line) => line.product).filter(Boolean);
@@ -336,7 +359,8 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
     toast.success(messages[action], promoted.length ? { description: `Now ready: ${promoted.join(", ")}` } : undefined);
   }
 
-  async function runAction(action: OperationAction, body: unknown = {}): Promise<boolean> {
+  /** Runs an engine action (saving pending edits first); `quiet` leaves the feedback to the caller. */
+  async function runAction(action: OperationAction, body: unknown = {}, quiet = false): Promise<boolean> {
     if (!operation) return false;
     setPending(action);
     try {
@@ -355,7 +379,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
         body,
       });
       await refreshAfter(result.operation);
-      announce(action, result);
+      if (!quiet) announce(action, result);
       return true;
     } catch (error) {
       toast.error(errorMessage(error));
@@ -682,7 +706,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                     Live stock at {locations.find((location) => location.id === stockLocation)?.fullName}
                   </span>
                 )}
-                {structureEditable && (
+                {(structureEditable || (pickable && !allPicked)) && (
                   <InputGroup className="h-9 w-full sm:w-72">
                     <InputGroupAddon>
                       <ScanBarcode />
@@ -693,11 +717,12 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
-                          addScanned();
+                          if (structureEditable) addScanned();
+                          else void pickScanned();
                         }
                       }}
-                      placeholder="Scan or type a SKU, press Enter"
-                      aria-label="Scan or type a SKU"
+                      placeholder={structureEditable ? "Scan or type a SKU, press Enter" : "Scan a product to pick it"}
+                      aria-label={structureEditable ? "Scan or type a SKU" : "Scan a product to pick it"}
                     />
                   </InputGroup>
                 )}
