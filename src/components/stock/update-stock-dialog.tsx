@@ -18,7 +18,7 @@ import {
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiMutation } from "@/hooks/use-api-mutation";
-import { useLocations } from "@/hooks/use-reference-data";
+import { primaryLocationId, useLocations, useWarehouses } from "@/hooks/use-reference-data";
 import { api, qs } from "@/lib/api-client";
 import { formatQty, round3 } from "@/lib/format";
 import type { AvailabilityDTO } from "@/lib/types";
@@ -34,11 +34,12 @@ export interface StockTarget {
 
 function UpdateStockForm({ target, onDone }: { target: StockTarget; onDone: () => void }) {
   const { data: locations = [] } = useLocations();
+  const { data: warehouses = [] } = useWarehouses();
   const form = useForm<StockUpdateInput>({
     resolver: zodResolver(stockUpdateSchema),
     defaultValues: {
       product: target.productId,
-      location: target.locationId ?? locations.find((location) => location.isDefault)?.id ?? "",
+      location: target.locationId ?? primaryLocationId(warehouses, locations),
       countedQty: undefined,
       note: "",
     },

@@ -17,6 +17,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  ScanBarcode,
   Trash2,
   TriangleAlert,
   X,
@@ -42,14 +43,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useLocations, useProductOptions, useUserOptions, useWarehouses } from "@/hooks/use-reference-data";
+import { primaryLocationId, useLocations, useProductOptions, useUserOptions, useWarehouses } from "@/hooks/use-reference-data";
 import { api, ApiError, errorMessage, qs } from "@/lib/api-client";
 import { OPERATION_META, operationPath, type OperationType } from "@/lib/constants";
 import { formatDateTime, formatQty, round3, todayISO } from "@/lib/format";
 import { manageCapability } from "@/lib/permissions";
-import type { AvailabilityDTO, LocationDTO, OperationActionResult, OperationDTO } from "@/lib/types";
+import type { AvailabilityDTO, OperationActionResult, OperationDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   operationFieldsSchema,
@@ -78,7 +80,7 @@ function initialValues(
   type: OperationType,
   operation: OperationDTO | undefined,
   prefill: OperationPrefill | undefined,
-  locations: LocationDTO[],
+  defaultLocation: string,
   userId: string,
 ): OperationFields {
   if (operation) {
@@ -93,7 +95,7 @@ function initialValues(
       lines: operation.lines.map((line) => ({ product: line.productId, quantity: line.quantity })),
     };
   }
-  const main = prefill?.location ?? locations.find((location) => location.isDefault)?.id ?? "";
+  const main = prefill?.location ?? defaultLocation;
   return {
     sourceLocation: type === "delivery" || type === "internal" ? main : "",
     destLocation: type === "receipt" || type === "adjustment" ? main : "",
@@ -172,7 +174,7 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
   const resolver = useMemo(() => operationResolver(type), [type]);
   const form = useForm<OperationFields>({
     resolver,
-    defaultValues: initialValues(type, operation, prefill, locations, user.id),
+    defaultValues: initialValues(type, operation, prefill, primaryLocationId(warehouses, locations), user.id),
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "lines" });
   const lines = useWatch({ control: form.control, name: "lines" }) ?? [];
@@ -182,6 +184,35 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
 
   const [pending, setPending] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
+  const [scan, setScan] = useState("");
+
+  /** Barcode scanners type the SKU followed by Enter: add the product or increase its quantity. */
+  function addScanned() {
+    const code = scan.trim();
+    if (!code) return;
+    const product =
+      products.find((item) => item.sku === code.toUpperCase()) ??
+      products.find((item) => item.name.toLowerCase() === code.toLowerCase());
+    if (!product) {
+      toast.error(`No active product with SKU "${code}"`);
+      return;
+    }
+    const current = form.getValues("lines");
+    const existing = current.findIndex((line) => line.product === product.id);
+    if (existing >= 0) {
+      form.setValue(`lines.${existing}.quantity`, round3((Number(current[existing].quantity) || 0) + 1), { shouldDirty: true });
+    } else {
+      const empty = current.findIndex((line) => !line.product);
+      if (empty >= 0) {
+        form.setValue(`lines.${empty}.product`, product.id, { shouldDirty: true });
+        form.setValue(`lines.${empty}.quantity`, 1, { shouldDirty: true });
+      } else {
+        append({ product: product.id, quantity: 1 });
+      }
+    }
+    toast.success(`${product.name} +1`, { duration: 1200 });
+    setScan("");
+  }
 
   // Live availability at the location stock is taken from (or counted at, for adjustments).
   const stockLocation = type === "adjustment" ? destLocation : sourceLocation;
@@ -550,13 +581,34 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Products</h3>
-              {showAvailability && stockLocation && (
-                <span className="text-xs text-muted-foreground">
-                  Live stock at {locations.find((location) => location.id === stockLocation)?.fullName}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-3">
+                {showAvailability && stockLocation && (
+                  <span className="text-xs text-muted-foreground">
+                    Live stock at {locations.find((location) => location.id === stockLocation)?.fullName}
+                  </span>
+                )}
+                {structureEditable && (
+                  <InputGroup className="h-9 w-full sm:w-72">
+                    <InputGroupAddon>
+                      <ScanBarcode />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      value={scan}
+                      onChange={(event) => setScan(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addScanned();
+                        }
+                      }}
+                      placeholder="Scan or type a SKU, press Enter"
+                      aria-label="Scan or type a SKU"
+                    />
+                  </InputGroup>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto rounded-lg border">
               <Table>

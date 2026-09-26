@@ -17,7 +17,7 @@ import {
 import { FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiMutation } from "@/hooks/use-api-mutation";
-import { useCategories, useLocations } from "@/hooks/use-reference-data";
+import { primaryLocationId, useCategories, useLocations, useWarehouses } from "@/hooks/use-reference-data";
 import { api } from "@/lib/api-client";
 import { UNITS_OF_MEASURE } from "@/lib/constants";
 import type { ProductRowDTO } from "@/lib/types";
@@ -28,7 +28,8 @@ function ProductForm({ product, onDone }: { product: ProductRowDTO | null; onDon
   const router = useRouter();
   const { data: categories = [] } = useCategories();
   const { data: locations = [] } = useLocations();
-  const defaultLocation = locations.find((location) => location.isDefault)?.id ?? "";
+  const { data: warehouses = [] } = useWarehouses();
+  const defaultLocation = primaryLocationId(warehouses, locations);
 
   const form = useForm<ProductCreateInput>({
     resolver: zodResolver(productCreateSchema),

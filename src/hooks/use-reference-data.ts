@@ -12,6 +12,12 @@ import type {
 
 /** Shared, cached master data used by filters and forms across pages. */
 
+/** Main stock location of the first warehouse: the sensible default for new documents. */
+export function primaryLocationId(warehouses: WarehouseDTO[] = [], locations: LocationDTO[] = []): string {
+  const [first] = [...warehouses].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return first?.defaultLocationId ?? locations.find((location) => location.isDefault)?.id ?? "";
+}
+
 export function useWarehouses() {
   return useQuery({ queryKey: ["warehouses"], queryFn: () => api<WarehouseDTO[]>("/api/warehouses") });
 }

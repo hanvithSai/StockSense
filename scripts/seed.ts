@@ -328,8 +328,8 @@ async function main() {
       shortCode: spec.key,
       address: spec.address,
       defaultLocation: locations.stock._id,
-      createdAt: dayAt(-HISTORY_DAYS - 1, 11),
-      updatedAt: dayAt(-HISTORY_DAYS - 1, 11),
+      createdAt: addMinutes(dayAt(-HISTORY_DAYS - 1, 11), index * 20),
+      updatedAt: addMinutes(dayAt(-HISTORY_DAYS - 1, 11), index * 20),
     });
     await models.Location.collection.insertMany(locationDocs);
     warehouses[spec.key] = { _id, key: spec.key, name: spec.name, locations };
