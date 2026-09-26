@@ -97,6 +97,16 @@ export const changePasswordSchema = z
   });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+/** A manager creating an account for a colleague (with a temporary password). */
+export const userCreateSchema = z.object({
+  name: nameSchema,
+  loginId: loginIdSchema,
+  email: emailSchema,
+  role: z.enum(ROLES, { error: "Select a role" }),
+  password: passwordSchema,
+});
+export type UserCreateInput = z.infer<typeof userCreateSchema>;
+
 export const userUpdateSchema = z
   .object({
     role: z.enum(ROLES, { error: "Select a role" }).optional(),

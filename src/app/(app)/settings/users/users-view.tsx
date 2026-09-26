@@ -1,10 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { UserPlus } from "lucide-react";
+import { useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -14,9 +17,11 @@ import { api } from "@/lib/api-client";
 import { ROLE_LABELS, ROLES, type Role } from "@/lib/constants";
 import { formatRelative, initials } from "@/lib/format";
 import type { UserDTO } from "@/lib/types";
+import { AddUserDialog } from "./add-user-dialog";
 
 export function UsersView() {
   const { user: me } = useSession();
+  const [adding, setAdding] = useState(false);
   const { data, isLoading } = useQuery({ queryKey: ["users"], queryFn: () => api<UserDTO[]>("/api/users") });
   const update = useApiMutation<{ id: string; role?: Role; isActive?: boolean }>({
     mutationFn: ({ id, ...body }) => api(`/api/users/${id}`, { method: "PATCH", body }),
@@ -29,7 +34,13 @@ export function UsersView() {
       <PageHeader
         title="Users"
         description="Inventory managers plan receipts and deliveries; warehouse staff pick, transfer and count."
+        actions={
+          <Button onClick={() => setAdding(true)}>
+            <UserPlus /> Add user
+          </Button>
+        }
       />
+      <AddUserDialog open={adding} onOpenChange={setAdding} />
       <Card className="gap-0 py-0">
         <Table>
           <TableHeader>

@@ -8,6 +8,7 @@ import type {
   ProfileInput,
   ResetPasswordInput,
   SignupInput,
+  UserCreateInput,
 } from "@/lib/validation/auth";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { AppError, badRequest, conflict, notFound, tooManyRequests, validationError } from "@/server/errors";
@@ -208,6 +209,28 @@ function toUserDTO(user: UserRecord & { createdAt?: Date }): UserDTO {
     createdAt: (user.createdAt ?? new Date()).toISOString(),
     lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : null,
   };
+}
+
+/** Account created by a manager; the colleague signs in with the temporary password and changes it. */
+export async function createUser(actor: SessionUser, input: UserCreateInput): Promise<string> {
+  const [loginTaken, emailTaken] = await Promise.all([
+    User.exists({ loginId: input.loginId }),
+    User.exists({ email: input.email }),
+  ]);
+  const errors: Record<string, string> = {};
+  if (loginTaken) errors.loginId = "This login ID is already taken";
+  if (emailTaken) errors.email = "An account with this email already exists";
+  if (Object.keys(errors).length) throw validationError(errors);
+
+  const user = await User.create({
+    name: input.name,
+    loginId: input.loginId,
+    email: input.email,
+    passwordHash: await hashPassword(input.password),
+    role: input.role,
+  });
+  await recordActivity(actor, userLog(user, "created", `Created an account for ${user.name} as ${ROLE_LABELS[input.role]}`));
+  return user._id.toString();
 }
 
 export async function listUsers(): Promise<UserDTO[]> {
