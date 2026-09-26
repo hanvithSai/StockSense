@@ -33,6 +33,7 @@ export function ProductPicker({ value, onChange, products, disabled, invalid, ex
           type="button"
           variant="outline"
           role="combobox"
+          aria-label="Product"
           aria-expanded={open}
           aria-invalid={invalid}
           disabled={disabled}

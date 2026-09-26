@@ -115,11 +115,11 @@ function operationResolver(type: OperationType): Resolver<OperationFields> {
   const base = zodResolver(operationFieldsSchema) as unknown as Resolver<OperationFields>;
   return async (values, context, options) => {
     const result = await base(values, context, options);
-    if (Object.keys(result.errors).length > 0) return result;
-    const rules = operationRules(type, result.values as OperationFields);
+    const rules = operationRules(type, values);
     if (!Object.keys(rules).length) return result;
     const flat = Object.fromEntries(Object.entries(rules).map(([path, message]) => [path, { type: "custom", message }]));
-    return { values: {}, errors: toNestErrors(flat, options) };
+    // Show shape errors and business-rule errors together; shape errors win on the same field.
+    return { values: {}, errors: { ...toNestErrors(flat, options), ...result.errors } };
   };
 }
 
