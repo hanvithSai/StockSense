@@ -58,7 +58,8 @@ function assertSameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
   if (!origin) return;
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (!host || new URL(origin).host !== host) throw forbidden("Cross-origin request blocked");
+  // An opaque or malformed origin ("null" from sandboxed frames, garbage) is never same-origin.
+  if (!host || !URL.canParse(origin) || new URL(origin).host !== host) throw forbidden("Cross-origin request blocked");
 }
 
 function respond(result: unknown): Response {
@@ -105,8 +106,11 @@ export async function parseBody<T>(req: NextRequest, schema: ZodType<T>): Promis
   return schema.parse(body);
 }
 
+/** Control characters never belong in a filter or search term (MongoDB patterns cannot contain NUL). */
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g;
+
 export function searchParam(req: NextRequest, key: string): string | undefined {
-  const value = req.nextUrl.searchParams.get(key)?.trim();
+  const value = req.nextUrl.searchParams.get(key)?.replace(CONTROL_CHARACTERS, "").trim();
   return value ? value : undefined;
 }
 
@@ -144,8 +148,11 @@ export async function optionalBody(req: NextRequest): Promise<unknown> {
   }
 }
 
+/** Deepest page served; keeps database skips in range whatever the query string says. */
+const MAX_PAGE = 10_000;
+
 export function pageParams(req: NextRequest, defaultLimit = 20) {
-  const page = Math.max(1, Number.parseInt(searchParam(req, "page") ?? "1", 10) || 1);
+  const page = Math.min(MAX_PAGE, Math.max(1, Number.parseInt(searchParam(req, "page") ?? "1", 10) || 1));
   const limit = Math.min(200, Math.max(1, Number.parseInt(searchParam(req, "limit") ?? "", 10) || defaultLimit));
   return { page, limit, skip: (page - 1) * limit };
 }
