@@ -117,6 +117,7 @@ async function main() {
   }
 
   console.log("Replaying stock operations…");
+  let sequence = 0;
   async function operation(
     type: OperationType,
     fields: { source?: string; dest?: string; contact?: string; address?: string; date?: string; notes?: string },
@@ -138,6 +139,11 @@ async function main() {
       actor,
     );
     for (const action of actions) await runOperationAction(id, action, {}, actor);
+    // Spread the historical validations over their scheduled days so the ledger reads naturally.
+    sequence += 1;
+    const doneAt = new Date(`${fields.date ?? day(0)}T09:00:00`);
+    doneAt.setMinutes(doneAt.getMinutes() + sequence * 23);
+    await models.Operation.updateOne({ _id: id, status: "done" }, { doneAt });
     return id;
   }
   const receive: OperationAction[] = ["confirm", "validate"];
