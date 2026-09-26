@@ -42,6 +42,7 @@ import { formatCompact, formatDate, formatRelative, todayISO } from "@/lib/forma
 import type { DashboardDTO, OperationListDTO, OperationTypeStats } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ActivityChart } from "./activity-chart";
+import { GettingStarted } from "./getting-started";
 
 const DOC_TYPE_TABS: Record<OperationType, string> = {
   receipt: "Receipts",
@@ -193,6 +194,15 @@ export function DashboardView() {
           />
         </div>
       </div>
+
+      {data && !warehouse && !location && !category && (
+        <GettingStarted
+          hasWarehouse={warehouses.length > 0}
+          hasProducts={data.kpis.totalProducts > 0}
+          hasReceipt={data.operations.receipt.done > 0}
+          hasDelivery={data.operations.delivery.done > 0}
+        />
+      )}
 
       {!kpis ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
