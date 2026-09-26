@@ -31,7 +31,7 @@ async function main() {
     process.exit(1);
   }
   if (reset) {
-    await Promise.all(Object.values(models).map((model) => model.deleteMany({})));
+    await Promise.all(Object.values(mongoose.connection.collections).map((collection) => collection.deleteMany({})));
     await ensureSystemLocations();
   }
 
