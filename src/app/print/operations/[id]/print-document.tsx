@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api-client";
 import { OPERATION_META, STATUS_LABELS } from "@/lib/constants";
 import { formatDate, formatDateTime, formatQty } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { OperationDTO } from "@/lib/types";
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
@@ -21,7 +22,19 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Printable delivery slip / goods received note. */
+/** Box to tick or fill in by hand on the printed sheet. */
+function HandBox({ checked = false, className }: { checked?: boolean; className?: string }) {
+  return (
+    <span
+      className={cn("ml-auto flex items-center justify-center rounded border border-neutral-400 text-xs", className)}
+      aria-hidden
+    >
+      {checked ? "✓" : ""}
+    </span>
+  );
+}
+
+/** Printable delivery slip / goods received note, picking list (ready moves) or blind count sheet (draft counts). */
 export function PrintDocument({ id }: { id: string }) {
   const { data: op, error } = useQuery({
     queryKey: ["operation", id],
@@ -48,6 +61,10 @@ export function PrintDocument({ id }: { id: string }) {
   const isAdjustment = op.type === "adjustment";
   // A draft adjustment prints as a blind count sheet: recorded stock stays hidden from the counter.
   const countSheet = isAdjustment && op.status === "draft";
+  // A ready delivery or transfer prints as a picking list to tick off along the shelves.
+  const pickingList = (op.type === "delivery" || op.type === "internal") && op.status === "ready";
+  const title = countSheet ? "Stock count sheet" : pickingList ? "Picking list" : meta.label;
+  const handSheet = countSheet || pickingList;
 
   return (
     <div className="min-h-svh bg-neutral-100 py-8 text-neutral-900 print:bg-white print:py-0">
@@ -63,7 +80,7 @@ export function PrintDocument({ id }: { id: string }) {
             <p className="text-sm text-neutral-500">{op.warehouse.name}</p>
           </div>
           <div className="flex flex-col items-end text-right">
-            <p className="text-xs tracking-wide text-neutral-500 uppercase">{countSheet ? "Stock count sheet" : meta.label}</p>
+            <p className="text-xs tracking-wide text-neutral-500 uppercase">{title}</p>
             <p className="font-mono text-2xl font-semibold">{op.reference}</p>
             <p className="mt-1 text-sm">{STATUS_LABELS[op.status]}</p>
             <Barcode value={op.reference} className="mt-2 h-12 w-44" />
@@ -77,12 +94,12 @@ export function PrintDocument({ id }: { id: string }) {
             <Detail label="Location to count" value={op.destLocation.fullName} />
           ) : (
             <>
-              <Detail label="From" value={op.sourceLocation.fullName} />
+              <Detail label={pickingList ? "Pick from" : "From"} value={op.sourceLocation.fullName} />
               <Detail label="To" value={op.destLocation.fullName} />
             </>
           )}
           <Detail label={countSheet ? "Count date" : "Scheduled"} value={formatDate(op.scheduledDate)} />
-          {!countSheet && <Detail label="Validated" value={op.doneAt ? formatDateTime(op.doneAt) : "Not validated"} />}
+          {!handSheet && <Detail label="Validated" value={op.doneAt ? formatDateTime(op.doneAt) : "Not validated"} />}
           <Detail label="Responsible" value={op.responsible?.name} />
         </dl>
 
@@ -95,7 +112,8 @@ export function PrintDocument({ id }: { id: string }) {
               <th className="px-3 py-2 text-right font-semibold">{isAdjustment ? "Counted" : "Quantity"}</th>
               {isAdjustment && !countSheet && <th className="px-3 py-2 text-right font-semibold">Difference</th>}
               <th className="px-3 py-2 font-semibold">Unit</th>
-              {countSheet && <th className="px-3 py-2 font-semibold">Remarks</th>}
+              {pickingList && <th className="px-3 py-2 text-right font-semibold">Picked</th>}
+              {handSheet && <th className="px-3 py-2 font-semibold">Remarks</th>}
             </tr>
           </thead>
           <tbody>
@@ -108,7 +126,7 @@ export function PrintDocument({ id }: { id: string }) {
                 {isAdjustment && !countSheet && <td className="px-3 py-2 text-right tabular">{formatQty(line.systemQty)}</td>}
                 {countSheet ? (
                   <td className="px-3 py-3">
-                    <span className="ml-auto block h-7 w-24 rounded border border-neutral-400" aria-label="Counted quantity" />
+                    <HandBox className="h-7 w-24" />
                   </td>
                 ) : (
                   <td className="px-3 py-2 text-right font-medium tabular">{formatQty(line.quantity)}</td>
@@ -120,7 +138,16 @@ export function PrintDocument({ id }: { id: string }) {
                   </td>
                 )}
                 <td className="px-3 py-2">{line.uom}</td>
-                {countSheet && <td className="px-3 py-3"><span className="block h-7 w-full border-b border-neutral-300" /></td>}
+                {pickingList && (
+                  <td className="px-3 py-3">
+                    <HandBox checked={line.picked} className="size-6" />
+                  </td>
+                )}
+                {handSheet && (
+                  <td className="px-3 py-3">
+                    <span className="block h-7 w-full border-b border-neutral-300" />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -134,8 +161,8 @@ export function PrintDocument({ id }: { id: string }) {
         )}
 
         <footer className="mt-16 grid grid-cols-2 gap-16 text-sm">
-          <div className="border-t pt-2 text-neutral-500">{countSheet ? "Counted by" : "Prepared by"}</div>
-          <div className="border-t pt-2 text-neutral-500">{countSheet ? "Checked by" : op.type === "receipt" ? "Received by" : "Signature"}</div>
+          <div className="border-t pt-2 text-neutral-500">{countSheet ? "Counted by" : pickingList ? "Picked by" : "Prepared by"}</div>
+          <div className="border-t pt-2 text-neutral-500">{handSheet ? "Checked by" : op.type === "receipt" ? "Received by" : "Signature"}</div>
         </footer>
       </article>
     </div>

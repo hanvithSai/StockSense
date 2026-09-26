@@ -385,6 +385,15 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
   const canReset = Boolean(operation) && canManage && (status === "waiting" || status === "ready" || status === "cancelled");
   const canDelete = Boolean(operation) && canManage && (status === "draft" || status === "cancelled");
   const pickable = type === "delivery" && status === "ready" && canProcess;
+  // Done documents print as slips; draft counts as blind count sheets; ready moves as picking lists.
+  const printLabel =
+    status === "done"
+      ? "Print"
+      : type === "adjustment" && status === "draft"
+        ? "Count sheet"
+        : (type === "delivery" || type === "internal") && status === "ready"
+          ? "Picking list"
+          : null;
 
   /* ---------------------------------------------------------------- UI */
 
@@ -419,10 +428,10 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                   Save
                 </ActionButton>
               )}
-              {(status === "done" || (type === "adjustment" && status === "draft")) && (
+              {printLabel && (
                 <Button type="button" variant="outline" asChild>
                   <Link href={`/print/operations/${operation!.id}`} target="_blank">
-                    <Printer /> {status === "done" ? "Print" : "Count sheet"}
+                    <Printer /> {printLabel}
                   </Link>
                 </Button>
               )}
