@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   },
   description:
     "Real-time inventory management: receipts, deliveries, internal transfers, adjustments and a complete stock ledger.",
+  applicationName: "StockSense",
+  appleWebApp: { capable: true, title: "StockSense", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
