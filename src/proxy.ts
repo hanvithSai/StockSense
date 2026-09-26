@@ -9,7 +9,7 @@ const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password"];
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+  if (pathname === "/" || PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return NextResponse.next();
   }
 
@@ -17,7 +17,7 @@ export async function proxy(request: NextRequest) {
   if (token && (await verifySessionToken(token))) return NextResponse.next();
 
   const loginUrl = new URL("/login", request.url);
-  if (pathname !== "/") loginUrl.searchParams.set("next", `${pathname}${search}`);
+  loginUrl.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(loginUrl);
 }
 
