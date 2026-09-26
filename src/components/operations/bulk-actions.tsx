@@ -122,9 +122,9 @@ export function BulkActions({
   const pending = confirming ? jobsFor(confirming).length : 0;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b bg-primary/5 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-2 border-b bg-primary/5 px-3 py-1.5">
       <span className="shrink-0 text-sm font-medium">{selected.length} selected</span>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="order-last flex w-full flex-wrap items-center gap-1.5 sm:order-none sm:w-auto">
         {kinds.map((kind) => {
           const count = jobsFor(kind).length;
           const Icon = BULK[kind].icon;
