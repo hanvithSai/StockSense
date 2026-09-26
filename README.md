@@ -19,9 +19,20 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 | **Internal transfers** | Between racks, floors or warehouses (e.g. Main Store → Production Rack). Total stock unchanged, location updated |
 | **Inventory adjustments** | Pick a location, enter counted quantities, and the system applies and logs the difference. Quick "Update stock" from the Stock page |
 | **Move history & ledger** | Every move with from → to, incoming in green, outgoing in red. List and kanban views, search by reference, contact or product. Per-product ledger with running balance |
-| **Also** | References like `WH/IN/0001`, printable documents, multi-warehouse, global SKU search (Ctrl K), low stock alerts, light / dark theme, responsive layout |
+| **Reports** | Stock valuation, goods received vs shipped (value per day), on-time rate, delivery lead time, days of cover and turnover, value by category and warehouse, top products shipped, slow movers, operations by status |
+| **Audit trail** | Every create, change and state transition is recorded with its author: an activity timeline on each operation and product, and a filterable, exportable Audit Log for managers |
+| **Excel in, Excel out** | CSV product import with preview, flexible column names, row-level validation and a report; CSV export of stock, move history, reports and the audit log |
+| **Also** | References like `WH/IN/0001`, printable documents, multi-warehouse, global search and quick actions (Ctrl K), "to process" badges, "Assigned to me" filter, live sync indicator, protection against conflicting edits, login lockout, light / dark theme, responsive layout, public landing page |
 
 The simplified flow from the problem statement is included in the demo data: receive 100 kg steel (+100), move 40 kg to the production rack (total unchanged), deliver 20 kg (−20), adjust 3 kg damaged (−3), for 77 kg in stock, all visible in the steel ledger.
+
+## Screenshots
+
+| Dashboard | Operation with activity timeline |
+|---|---|
+| ![Dashboard](public/screens/dashboard.jpg) | ![Delivery order](public/screens/operation.jpg) |
+| **Reports** | **Stock** |
+| ![Reports](public/screens/reports.jpg) | ![Stock](public/screens/stock.jpg) |
 
 ## Tech stack
 
@@ -53,7 +64,8 @@ flowchart LR
 ```
 
 - `src/app/api/**` holds thin REST handlers. `route()` connects to the database, resolves the user, checks the capability, validates with Zod and maps errors to HTTP status codes.
-- `src/server/services/inventory.ts` is the **stock engine**, the only code that changes quantities. Every action runs in a transaction; quants are updated with guards (no negative stock, reserved ≤ on hand).
+- `src/server/services/inventory.ts` is the **stock engine**, the only code that changes quantities. Every action runs in a transaction; quants are updated with guards (no negative stock, reserved ≤ on hand), and the audit entry is written in the same transaction.
+- Edits carry a version (`updatedAt`): a save based on stale data is rejected with `409 STALE` instead of overwriting a colleague's change.
 - `src/lib` holds code shared by client and server: constants, permission matrix, Zod schemas, types, formatting.
 
 ### Data model
@@ -68,6 +80,7 @@ flowchart LR
 | `stockquants` | Quantity and reserved quantity per product and location (free to use = on hand − reserved) |
 | `operations` | Receipts, deliveries, transfers and adjustments with embedded product lines. Done operations are immutable and form the ledger |
 | `counters` | Atomic sequences for references `<WAREHOUSE>/<IN\|OUT\|INT\|ADJ>/<0001>` |
+| `auditlogs` | Append-only audit trail: record, action, message, author and time |
 
 ### Operation lifecycle
 
@@ -92,12 +105,16 @@ All endpoints return `{ data }` or `{ error: { code, message, fields } }`.
 | GET, PATCH | `/api/users`, `/api/users/:id` | Users and roles (manager) |
 | GET, POST, PATCH, DELETE | `/api/warehouses`, `/api/locations`, `/api/categories`, `/api/reorder-rules` | Master data |
 | GET, POST, PATCH, DELETE | `/api/products`, `/api/products/:id`, GET `/api/products/:id/ledger` | Products, stock and ledger |
+| POST | `/api/products/import` | Bulk CSV import with a per-row report |
 | GET | `/api/stock`, `/api/stock/availability` | Stock per product / location |
 | POST | `/api/stock/adjust` | Quick stock count (booked as an adjustment) |
-| GET, POST | `/api/operations` | List (filters: type, status, warehouse, location, category, q, late) / create |
+| GET, POST | `/api/operations` | List (filters: type, status, warehouse, location, category, responsible, q, late) / create |
+| GET | `/api/operations/counts` | Work to process per operation type |
 | GET, PATCH, DELETE | `/api/operations/:id` | Read / edit / delete draft |
 | POST | `/api/operations/:id/{confirm, check-availability, pick, pack, validate, cancel, reset}` | State transitions |
 | GET | `/api/moves`, `/api/dashboard`, `/api/alerts`, `/api/search` | Move history, KPIs, alerts, global search |
+| GET | `/api/reports?days=7\|30\|90` | Analytics: valuation, movement value, service level, velocity |
+| GET | `/api/audit` | Record timeline (`entityType` + `entityId`) or the full audit trail (managers) |
 
 ## Getting started
 
@@ -119,6 +136,10 @@ Demo accounts created by the seed:
 |---|---|---|
 | Inventory Manager | `manager` | `Manager@123` |
 | Warehouse Staff | `warehouse` | `Staff@1234` |
+| Inventory Manager | `rohan.iyer` | `Rohan@1234` |
+| Warehouse Staff | `sneha.k` | `Sneha@1234` |
+
+The seed builds a realistic workspace in about 12 seconds: 3 warehouses with 11 locations, 7 categories, 46 products with reordering rules, and 75 days of deterministic history (opening balances, vendor receipts, customer deliveries, production and inter-warehouse transfers, cycle counts, occasional cancellations and late validations) with a matching audit trail. Today's open work (ready, waiting, late and upcoming operations) goes through the real stock engine, including reservations.
 
 Without the seed, the first account that signs up becomes the Inventory Manager; later sign-ups join as Warehouse Staff.
 
@@ -130,7 +151,7 @@ Without the seed, the first account that signs up becomes the Inventory Manager;
 | `npm run build` / `npm start` | Production build / server |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript checks |
 | `npm test` | Unit tests (Vitest) for validation rules, stock status, move mapping and helpers |
-| `npm run seed` | Demo data, replayed through the real stock engine |
+| `npm run seed` | Realistic demo workspace (`-- --reset` wipes existing data first) |
 
 ### Deployment
 
@@ -142,13 +163,15 @@ The app deploys to **Vercel** without extra configuration: import the repository
 src/
   app/
     (auth)/            login, signup, forgot password (OTP)
-    (app)/             dashboard, operations, products, stock, move history, settings, profile
+    (app)/             dashboard, reports, operations, products, stock, move history, settings, profile
+    page.tsx           public landing page
     api/               REST route handlers
     print/             printable documents
-  components/          layout shell, shared UI, feature components, shadcn/ui primitives
+  components/          layout shell, landing page, activity timeline, shared UI, feature components, shadcn/ui primitives
   hooks/               data and UI hooks
   lib/                 constants, permissions, Zod schemas, types, formatting (shared)
-  server/              database, models, auth, services (inventory engine, queries)
+  server/              database, models, auth, services (inventory engine, audit, reports, queries)
   proxy.ts             session gate for pages
-scripts/seed.ts        demo data
+public/screens/        product screenshots (landing page and README)
+scripts/seed.ts        realistic demo data
 ```
