@@ -31,8 +31,8 @@ export function StockView() {
   const canMove = can("stock:move");
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [warehouse, setWarehouse] = useState("");
-  const [location, setLocation] = useState("");
+  const [warehouse, setWarehouse] = useState(searchParams.get("warehouse") ?? "");
+  const [location, setLocation] = useState(searchParams.get("location") ?? "");
   const [category, setCategory] = useState(searchParams.get("category") ?? "");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState<StockTarget | null>(null);

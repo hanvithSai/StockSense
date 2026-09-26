@@ -33,13 +33,13 @@ const STOCK_FILTERS = [
 export function ProductsView() {
   const router = useRouter();
   const { can } = useSession();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [warehouse, setWarehouse] = useState("");
-  const [stock, setStock] = useState("");
+  const [stock, setStock] = useState(searchParams.get("stock") ?? "");
   const [archived, setArchived] = useState("");
   const [page, setPage] = useState(1);
-  const searchParams = useSearchParams();
   const [creating, setCreating] = useState(searchParams.get("new") === "1");
   const [importing, setImporting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);

@@ -93,9 +93,11 @@ function OperationCard({
   const meta = OPERATION_META[type];
   const base = operationPath(type);
   const items = [
-    { label: "Late", value: stats.late, tone: stats.late ? "text-destructive" : "", icon: TriangleAlert },
-    ...(type !== "receipt" ? [{ label: "Waiting", value: stats.waiting, tone: stats.waiting ? "text-amber-600 dark:text-amber-400" : "", icon: Hourglass }] : []),
-    { label: "Upcoming", value: stats.upcoming, tone: "", icon: ArrowRight },
+    { label: "Late", value: stats.late, tone: stats.late ? "text-destructive" : "", icon: TriangleAlert, href: `${base}?late=1` },
+    ...(type !== "receipt"
+      ? [{ label: "Waiting", value: stats.waiting, tone: stats.waiting ? "text-amber-600 dark:text-amber-400" : "", icon: Hourglass, href: `${base}?status=waiting` }]
+      : []),
+    { label: "Upcoming", value: stats.upcoming, tone: "", icon: ArrowRight, href: `${base}?view=kanban` },
   ];
   return (
     <Card className="gap-4">
@@ -110,20 +112,20 @@ function OperationCard({
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
         <Button asChild size="lg" className="h-11 px-4 text-base">
-          <Link href={base}>
+          <Link href={`${base}?status=ready`}>
             <span className="tabular">{stats.ready}</span> {actionLabel}
           </Link>
         </Button>
-        <dl className="flex gap-5 text-sm">
+        <div className="flex gap-4 text-sm">
           {items.map((item) => (
-            <div key={item.label} className="text-right">
-              <dt className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+            <Link key={item.label} href={item.href} className="rounded-md px-1.5 text-right transition-colors hover:bg-muted">
+              <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                 <item.icon className="size-3" /> {item.label}
-              </dt>
-              <dd className={cn("text-lg font-semibold tabular", item.tone)}>{item.value}</dd>
-            </div>
+              </span>
+              <span className={cn("block text-lg font-semibold tabular", item.tone)}>{item.value}</span>
+            </Link>
           ))}
-        </dl>
+        </div>
       </CardContent>
     </Card>
   );

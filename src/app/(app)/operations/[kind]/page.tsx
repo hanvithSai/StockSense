@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { OperationList } from "@/components/operations/operation-list";
 import { OPERATION_META, SLUG_TO_TYPE } from "@/lib/constants";
 
@@ -13,5 +14,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function OperationsPage({ params }: Props) {
   const type = SLUG_TO_TYPE[(await params).kind];
   if (!type) notFound();
-  return <OperationList key={type} type={type} />;
+  return (
+    <Suspense>
+      <OperationList key={type} type={type} />
+    </Suspense>
+  );
 }

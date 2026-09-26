@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { FilterSelect } from "@/components/common/filter-select";
@@ -25,6 +25,7 @@ import { api, qs } from "@/lib/api-client";
 import {
   LIVE_REFRESH_MS,
   OPERATION_META,
+  OPERATION_STATUSES,
   operationPath,
   STATUS_LABELS,
   type OperationStatus,
@@ -55,12 +56,14 @@ export function OperationList({ type }: { type: OperationType }) {
   const router = useRouter();
   const { can, user } = useSession();
   const meta = OPERATION_META[type];
-  const [view, setView] = useState<ViewMode>("list");
-  const [mine, setMine] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<OperationStatus | "">("");
-  const [warehouse, setWarehouse] = useState("");
-  const [late, setLate] = useState(false);
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") as OperationStatus | null;
+  const [view, setView] = useState<ViewMode>(searchParams.get("view") === "kanban" ? "kanban" : "list");
+  const [mine, setMine] = useState(searchParams.get("mine") === "1");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [status, setStatus] = useState<OperationStatus | "">(initialStatus && OPERATION_STATUSES.includes(initialStatus) ? initialStatus : "");
+  const [warehouse, setWarehouse] = useState(searchParams.get("warehouse") ?? "");
+  const [late, setLate] = useState(searchParams.get("late") === "1");
   const [page, setPage] = useState(1);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: warehouses = [] } = useWarehouses();

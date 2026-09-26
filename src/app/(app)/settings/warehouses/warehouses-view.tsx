@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { MapPin, MoreHorizontal, Pencil, Plus, Trash2, Warehouse } from "lucide-react";
+import { Boxes, MapPin, MoreHorizontal, Pencil, Plus, Trash2, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -168,13 +168,18 @@ export function WarehousesView() {
                     <dd className="font-semibold tabular">{warehouse.openOperations}</dd>
                   </div>
                 </dl>
-                <Link
-                  href={`/settings/locations?warehouse=${warehouse.id}`}
-                  className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                >
-                  <MapPin className="size-4" />
-                  {warehouse.locationCount} location{warehouse.locationCount === 1 ? "" : "s"}
-                </Link>
+                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                  <Link
+                    href={`/settings/locations?warehouse=${warehouse.id}`}
+                    className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
+                  >
+                    <MapPin className="size-4" />
+                    {warehouse.locationCount} location{warehouse.locationCount === 1 ? "" : "s"}
+                  </Link>
+                  <Link href={`/stock?warehouse=${warehouse.id}`} className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
+                    <Boxes className="size-4" /> View stock
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ))}

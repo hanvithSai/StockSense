@@ -46,7 +46,7 @@ export function AlertsBell() {
           <div className="flex gap-2 border-b px-4 py-2 text-xs">
             {data.waitingCount > 0 && (
               <Link
-                href="/operations/deliveries"
+                href="/operations/deliveries?status=waiting"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-1 rounded-md bg-warning/15 px-2 py-1 text-foreground hover:bg-warning/25"
               >

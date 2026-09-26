@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Boxes, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -149,7 +150,7 @@ export function LocationsView() {
               <TableHead>Location</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Warehouse</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
+              <TableHead className="w-32 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,8 +176,14 @@ export function LocationsView() {
                   <TableCell>{location.name}</TableCell>
                   <TableCell className="text-muted-foreground">{location.warehouse?.name}</TableCell>
                   <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon-sm" asChild aria-label={`Stock at ${location.fullName}`}>
+                        <Link href={`/stock?location=${location.id}`}>
+                          <Boxes />
+                        </Link>
+                      </Button>
                     {canWrite && (
-                      <div className="flex justify-end gap-1">
+                      <>
                         <Button variant="ghost" size="icon-sm" onClick={() => setEditing(location)} aria-label={`Edit ${location.fullName}`}>
                           <Pencil />
                         </Button>
@@ -189,8 +196,9 @@ export function LocationsView() {
                         >
                           <Trash2 />
                         </Button>
-                      </div>
+                      </>
                     )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
