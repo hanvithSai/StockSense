@@ -16,6 +16,7 @@ import {
   Warehouse,
   type LucideIcon,
 } from "lucide-react";
+import type { OperationType } from "@/lib/constants";
 import type { Capability } from "@/lib/permissions";
 
 export interface NavItem {
@@ -23,6 +24,8 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   capability?: Capability;
+  /** Operation type whose "to process" count is shown as a badge. */
+  todo?: OperationType;
 }
 
 export interface NavGroup {
@@ -42,10 +45,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { title: "Receipts", href: "/operations/receipts", icon: ArrowDownToLine },
-      { title: "Delivery Orders", href: "/operations/deliveries", icon: Truck },
-      { title: "Internal Transfers", href: "/operations/transfers", icon: ArrowLeftRight },
-      { title: "Adjustments", href: "/operations/adjustments", icon: ClipboardCheck },
+      { title: "Receipts", href: "/operations/receipts", icon: ArrowDownToLine, todo: "receipt" },
+      { title: "Delivery Orders", href: "/operations/deliveries", icon: Truck, todo: "delivery" },
+      { title: "Internal Transfers", href: "/operations/transfers", icon: ArrowLeftRight, todo: "internal" },
+      { title: "Adjustments", href: "/operations/adjustments", icon: ClipboardCheck, todo: "adjustment" },
     ],
   },
   {

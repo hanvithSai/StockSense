@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ChevronsUpDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,13 +24,14 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { api, errorMessage } from "@/lib/api-client";
-import { ROLE_LABELS } from "@/lib/constants";
+import { LIVE_REFRESH_MS, ROLE_LABELS, type OperationType } from "@/lib/constants";
 import { initials } from "@/lib/format";
 import { activeNavItem, NAV_GROUPS } from "./nav-config";
 import { useSession } from "./session-context";
@@ -102,6 +104,11 @@ export function AppSidebar() {
   const { can } = useSession();
   const { setOpenMobile } = useSidebar();
   const active = activeNavItem(pathname);
+  const { data: todo } = useQuery({
+    queryKey: ["operations", "todo-counts"],
+    queryFn: () => api<Record<OperationType, number>>("/api/operations/counts"),
+    refetchInterval: LIVE_REFRESH_MS * 2,
+  });
 
   return (
     <Sidebar collapsible="icon">
@@ -134,6 +141,11 @@ export function AppSidebar() {
                           <span>{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {item.todo && todo?.[item.todo] ? (
+                        <SidebarMenuBadge className="rounded-full bg-primary/12 px-1.5 text-primary" title="To process">
+                          {todo[item.todo]}
+                        </SidebarMenuBadge>
+                      ) : null}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

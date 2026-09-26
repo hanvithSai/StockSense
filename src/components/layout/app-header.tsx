@@ -11,6 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AlertsBell } from "./alerts-bell";
+import { LiveIndicator } from "./live-indicator";
 import { activeNavItem } from "./nav-config";
 import { SearchCommand } from "./search-command";
 import { ThemeToggle } from "./theme-toggle";
@@ -38,6 +39,7 @@ export function AppHeader() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="ml-auto flex items-center gap-1.5">
+        <LiveIndicator />
         <SearchCommand />
         <AlertsBell />
         <ThemeToggle />
