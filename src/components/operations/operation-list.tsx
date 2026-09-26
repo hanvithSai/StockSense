@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CalendarClock, Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
+import { Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -14,9 +14,9 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { ViewToggle, type ViewMode } from "@/components/common/view-toggle";
 import { useSession } from "@/components/layout/session-context";
+import { OperationKanban } from "@/components/operations/operation-kanban";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Toggle } from "@/components/ui/toggle";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -48,51 +48,6 @@ function ScheduleCell({ item }: { item: OperationListItemDTO }) {
       {item.isLate && <TriangleAlert className="size-3.5" />}
       {formatDate(item.scheduledDate)}
     </span>
-  );
-}
-
-function KanbanBoard({ type, items }: { type: OperationType; items: OperationListItemDTO[] }) {
-  const columns: OperationStatus[] = [...OPERATION_META[type].flow, "cancelled"];
-  return (
-    <ScrollArea className="w-full">
-      <div className="flex gap-4 p-3">
-        {columns.map((status) => {
-          const cards = items.filter((item) => item.status === status);
-          return (
-            <div key={status} className="flex w-72 shrink-0 flex-col rounded-xl bg-muted/50 p-2">
-              <div className="flex items-center justify-between px-2 py-1.5">
-                <span className="text-sm font-semibold">{STATUS_LABELS[status]}</span>
-                <span className="rounded-full bg-background px-2 text-xs text-muted-foreground tabular">{cards.length}</span>
-              </div>
-              <div className="flex min-h-24 flex-col gap-2">
-                {cards.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={operationPath(type, item.id)}
-                    className="rounded-lg border bg-card p-3 shadow-xs transition hover:border-primary/40 hover:shadow-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-sm font-semibold">{item.reference}</span>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    {item.contact && <p className="mt-1 truncate text-sm">{item.contact}</p>}
-                    <p className="mt-1 truncate text-xs text-muted-foreground">{item.productSummary || "No products"}</p>
-                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                      <span className={cn("flex items-center gap-1", item.isLate && "font-medium text-destructive")}>
-                        <CalendarClock className="size-3.5" />
-                        {formatDate(item.scheduledDate)}
-                      </span>
-                      <span className="truncate pl-2">{item.responsibleName}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
   );
 }
 
@@ -213,7 +168,7 @@ export function OperationList({ type }: { type: OperationType }) {
           isLoading ? (
             <div className="p-6 text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <KanbanBoard type={type} items={data?.items ?? []} />
+            <OperationKanban type={type} items={data?.items ?? []} />
           )
         ) : (
           <>
