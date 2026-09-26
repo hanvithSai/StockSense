@@ -13,6 +13,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:engine": "vitest run --config vitest.engine.config.mts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {
@@ -50,6 +51,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "mongodb-memory-server-core": "^11.3.0",
     "tailwindcss": "^4",
     "tsx": "^4",
     "typescript": "^5",

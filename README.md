@@ -45,6 +45,7 @@ The simplified flow from the problem statement is included in the demo data: rec
 | Auth | bcrypt password hashing, JWT (jose, HS256) in an httpOnly cookie, HMAC-hashed OTP codes, Nodemailer for mail |
 | UI | Tailwind CSS 4, shadcn/ui (Radix primitives), lucide icons, sonner toasts, next-themes |
 | Data fetching | TanStack Query with live polling and cache invalidation after every mutation |
+| Testing | Vitest; engine tests run against mongodb-memory-server (in-memory replica set) |
 
 ## Architecture
 
@@ -155,7 +156,8 @@ Without the seed, the first account that signs up becomes the Inventory Manager;
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / server |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript checks |
-| `npm test` | Unit tests (Vitest) for validation rules, permissions, transitions, stock status, move mapping and helpers |
+| `npm test` | Unit tests (Vitest) for validation rules, permissions, transitions, backorder planning, sorting, stock status, move mapping and helpers |
+| `npm run test:engine` | Stock engine tests on an in-memory MongoDB replica set (real transactions): the steel walkthrough, pick/pack guards, waiting and auto-promotion, backorders, reserved-stock and stale-edit protection. The first run downloads the MongoDB server binary |
 | `npm run seed` | Realistic demo workspace (`-- --reset` wipes existing data first) |
 
 ### Deployment

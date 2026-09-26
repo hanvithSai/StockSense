@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Engine tests need a MongoDB replica set: `npm run test:engine`.
+    exclude: [...configDefaults.exclude, "src/**/*.engine.test.ts"],
   },
 });
