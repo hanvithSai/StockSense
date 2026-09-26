@@ -11,7 +11,7 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 | Area | What you get |
 |---|---|
 | **Authentication** | Sign up / log in with Login ID or email, **OTP-based password reset** (6-digit code, 10 min expiry, 5 attempts, resend cooldown), signed httpOnly session cookie, redirect to the dashboard |
-| **Roles** | *Inventory Manager* plans receipts and deliveries and manages master data. *Warehouse Staff* picks, packs, validates, transfers and counts. Enforced by the API and mirrored in the UI |
+| **Roles** | *Inventory Manager* plans receipts and deliveries and manages master data and users (including creating accounts with a temporary password). *Warehouse Staff* picks, packs, validates, transfers and counts. Enforced by the API and mirrored in the UI |
 | **Dashboard** | KPIs: products in stock, low / out of stock, pending receipts, pending deliveries, scheduled transfers. Receipt / delivery / transfer cards (to process, late, waiting, upcoming). **Dynamic filters** by document type, status, warehouse, location and category. Low stock alerts and recent moves. Live refresh |
 | **Products** | Create / update products (name, SKU, category, unit of measure, cost, optional initial stock), stock per location, stock-level chart, categories, **reordering rules** (min / max) and **forecasts** (on hand + incoming − outgoing) with one-click replenishment receipts, printable **barcode labels** |
 | **Receipts** | Supplier, destination, products and quantities (pick from a searchable list or **scan the SKU barcode**): Draft → To Do → Ready → **Validate: stock increases** |
@@ -23,7 +23,7 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 | **Reports** | Stock valuation, goods received vs shipped (value per day), on-time rate, delivery lead time, days of cover and turnover, value by category and warehouse, top products shipped, slow movers, operations by status |
 | **Audit trail** | Every create, change and state transition is recorded with its author: an activity timeline (with **team notes**) on each operation and product, and a filterable, exportable Audit Log for managers |
 | **Excel in, Excel out** | CSV product import with preview, flexible column names, row-level validation and a report; CSV export of stock, move history, reports and the audit log |
-| **Also** | References like `WH/IN/0001`, printable documents, duplicate operations, multi-warehouse, global search and quick actions (Ctrl K), save with Ctrl S, "to process" badges, "Assigned to me" filter, getting-started checklist, live sync indicator, protection against conflicting edits, login lockout, light / dark theme, responsive layout, public landing page |
+| **Also** | References like `WH/IN/0001`, printable documents, duplicate operations, multi-warehouse, global search and quick actions (Ctrl K), save with Ctrl S, keyboard shortcuts reference (?), drill-down links from the dashboard to filtered lists, "to process" badges, "Assigned to me" filter, getting-started checklist, live sync indicator, protection against conflicting edits, login lockout, security headers, light / dark theme, responsive layout, public landing page |
 
 The simplified flow from the problem statement is included in the demo data: receive 100 kg steel (+100), move 40 kg to the production rack (total unchanged), deliver 20 kg (−20), adjust 3 kg damaged (−3), for 77 kg in stock, all visible in the steel ledger.
 
@@ -103,7 +103,7 @@ All endpoints return `{ data }` or `{ error: { code, message, fields } }`.
 | POST | `/api/auth/signup`, `/api/auth/login`, `/api/auth/logout` | Session management |
 | POST | `/api/auth/forgot-password`, `/api/auth/reset-password` | OTP password reset |
 | GET/PATCH | `/api/profile`, POST `/api/profile/password` | My profile |
-| GET, PATCH | `/api/users`, `/api/users/:id` | Users and roles (manager) |
+| GET, POST, PATCH | `/api/users`, `/api/users/:id` | Users, roles and account creation (manager) |
 | GET, POST, PATCH, DELETE | `/api/warehouses`, `/api/locations`, `/api/categories`, `/api/reorder-rules` | Master data |
 | POST | `/api/reorder-rules/replenish` | Draft receipts for every product at or below its minimum (forecast based) |
 | GET, POST, PATCH, DELETE | `/api/products`, `/api/products/:id`, GET `/api/products/:id/ledger` | Products, stock and ledger |
