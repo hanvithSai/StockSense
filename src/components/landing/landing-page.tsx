@@ -33,18 +33,18 @@ import type { LandingStats } from "@/server/services/landing";
 import { Showcase } from "./showcase";
 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: ArrowDownToLine, title: "Receipts", text: "Record vendor deliveries, validate on arrival and watch stock rise instantly." },
-  { icon: Truck, title: "Delivery orders", text: "Reserve stock, pick, pack and ship. Short lines turn red and wait for stock." },
+  { icon: ArrowDownToLine, title: "Receipts", text: "Record vendor deliveries, receive in full or in part, and watch stock rise instantly." },
+  { icon: Truck, title: "Delivery orders", text: "Reserve, scan to pick, pack and ship. Short orders wait for stock, or ship what is there and backorder the rest." },
   { icon: ArrowLeftRight, title: "Internal transfers", text: "Move goods between racks, production floors and warehouses in two clicks." },
-  { icon: ClipboardCheck, title: "Stock adjustments", text: "Enter physical counts; the difference is applied and logged automatically." },
+  { icon: ClipboardCheck, title: "Stock adjustments", text: "Count a whole rack from a blind count sheet; only the differences are applied and logged." },
   { icon: History, title: "Stock ledger", text: "Every movement has a from and a to, a timestamp and an author. Nothing is lost." },
   { icon: Warehouse, title: "Multi-warehouse", text: "Warehouses with any number of locations, each with live on-hand and free stock." },
   { icon: Bell, title: "Forecasts and reordering", text: "Forecast = on hand + incoming − outgoing. Rules raise alerts and create replenishment receipts in one click." },
-  { icon: ChartColumn, title: "Dashboards and reports", text: "Live KPIs, valuation, on-time rate, lead time, top movers and slow movers." },
-  { icon: ScanBarcode, title: "Scan, search and filter", text: "Scan barcodes into any document, find anything with Ctrl K, filter by type, status, site or category." },
+  { icon: ChartColumn, title: "Dashboards and reports", text: "Live KPIs, your own work queue, team activity, valuation, on-time rate and top movers." },
+  { icon: ScanBarcode, title: "Scan, search and filter", text: "Scan barcodes into any document, find anything with Ctrl K, and switch between list, kanban and calendar views." },
   { icon: ScrollText, title: "Audit trail and notes", text: "An exportable history of who did what and when, plus team notes on every record." },
   { icon: FileSpreadsheet, title: "Excel in, Excel out", text: "Import products from CSV and export stock, moves and audit logs in one click." },
-  { icon: Printer, title: "Barcodes and printing", text: "Print SKU barcode labels, goods received notes and delivery slips, ready to sign." },
+  { icon: Printer, title: "Barcodes and printing", text: "Print SKU labels, picking lists, count sheets, goods received notes and delivery slips." },
 ];
 
 const WORKFLOW = [
