@@ -14,6 +14,7 @@ import { AlertsBell } from "./alerts-bell";
 import { LiveIndicator } from "./live-indicator";
 import { activeNavItem } from "./nav-config";
 import { SearchCommand } from "./search-command";
+import { ShortcutsDialog } from "./shortcuts-dialog";
 import { ThemeToggle } from "./theme-toggle";
 
 export function AppHeader() {
@@ -44,6 +45,7 @@ export function AppHeader() {
         <AlertsBell />
         <ThemeToggle />
       </div>
+      <ShortcutsDialog />
     </header>
   );
 }

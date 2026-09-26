@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDown, LogOut, UserRound } from "lucide-react";
+import { ChevronsUpDown, Keyboard, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import { LIVE_REFRESH_MS, ROLE_LABELS, type OperationType } from "@/lib/constant
 import { initials } from "@/lib/format";
 import { activeNavItem, NAV_GROUPS } from "./nav-config";
 import { useSession } from "./session-context";
+import { SHORTCUTS_EVENT } from "./shortcuts-dialog";
 
 function UserMenu() {
   const { user } = useSession();
@@ -87,6 +88,10 @@ function UserMenu() {
                 <UserRound />
                 My Profile
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(SHORTCUTS_EVENT))}>
+              <Keyboard />
+              Keyboard shortcuts
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onSelect={logout}>
               <LogOut />
