@@ -41,7 +41,7 @@ export function LoginForm({ demo }: { demo: boolean }) {
       router.replace(safeNext(searchParams.get("next")));
       router.refresh();
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) setFormError(error.message);
+      if (error instanceof ApiError && [401, 403, 429].includes(error.status)) setFormError(error.message);
       else applyServerErrors(error, setError);
     }
   }

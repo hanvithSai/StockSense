@@ -18,6 +18,8 @@ import { User, type UserRecord } from "@/server/models/user";
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_SECONDS = 60;
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCK_MINUTES = 5;
 
 type UserWithHash = UserRecord & { passwordHash: string };
 
@@ -50,10 +52,27 @@ export async function login(input: LoginInput): Promise<UserRecord> {
   const user = await User.findOne({ $or: [{ loginId: input.identifier }, { email: input.identifier }] })
     .select("+passwordHash")
     .lean<UserWithHash>();
+
+  if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+    const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+    throw new AppError(429, "ACCOUNT_LOCKED", `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}`);
+  }
+
   const valid = await verifyPassword(input.password, user?.passwordHash);
-  if (!user || !valid) throw new AppError(401, "INVALID_CREDENTIALS", "Invalid Login Id or Password");
+  if (!user || !valid) {
+    if (user) {
+      const attempts = (user.failedLoginAttempts ?? 0) + 1;
+      await User.updateOne(
+        { _id: user._id },
+        attempts >= LOGIN_MAX_ATTEMPTS
+          ? { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOGIN_LOCK_MINUTES * 60_000) }
+          : { failedLoginAttempts: attempts },
+      );
+    }
+    throw new AppError(401, "INVALID_CREDENTIALS", "Invalid Login Id or Password");
+  }
   if (!user.isActive) throw new AppError(403, "ACCOUNT_DISABLED", "This account has been deactivated. Contact your manager");
-  await User.updateOne({ _id: user._id }, { lastLoginAt: new Date() });
+  await User.updateOne({ _id: user._id }, { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null });
   return user;
 }
 
@@ -131,6 +150,8 @@ export async function resetPassword(input: ResetPasswordInput): Promise<UserReco
   user.passwordHash = await hashPassword(input.password);
   user.sessionVersion = (user.sessionVersion ?? 0) + 1;
   user.lastLoginAt = new Date();
+  user.failedLoginAttempts = 0;
+  user.lockedUntil = null;
   await user.save();
   await OtpToken.deleteMany({ user: user._id });
   return user.toObject() as UserRecord;

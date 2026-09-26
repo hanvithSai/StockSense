@@ -11,6 +11,9 @@ const userSchema = new Schema(
     isActive: { type: Boolean, default: true },
     /** Incremented on password change/reset to invalidate existing sessions. */
     sessionVersion: { type: Number, default: 0 },
+    /** Brute-force protection: consecutive failures and temporary lock. */
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockedUntil: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true },
