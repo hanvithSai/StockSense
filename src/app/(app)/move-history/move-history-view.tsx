@@ -1,10 +1,11 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { History } from "lucide-react";
+import { Download, History } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/common/empty-state";
 import { FilterSelect } from "@/components/common/filter-select";
 import { MoveQuantity } from "@/components/common/move-quantity";
@@ -14,12 +15,14 @@ import { SearchInput } from "@/components/common/search-input";
 import { StatusBadge } from "@/components/common/status-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { ViewToggle, type ViewMode } from "@/components/common/view-toggle";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useWarehouses } from "@/hooks/use-reference-data";
-import { api, qs } from "@/lib/api-client";
+import { api, errorMessage, qs } from "@/lib/api-client";
 import {
   LIVE_REFRESH_MS,
   OPERATION_META,
@@ -28,7 +31,8 @@ import {
   operationPath,
   STATUS_LABELS,
 } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
+import { formatDate, todayISO } from "@/lib/format";
 import type { MoveRowDTO, Paginated } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -70,11 +74,51 @@ export function MoveHistoryView() {
     setPage(1);
   };
 
+  const [exporting, setExporting] = useState(false);
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const rows: MoveRowDTO[] = [];
+      for (let next = 1; next <= 50; next += 1) {
+        const batch = await api<Paginated<MoveRowDTO>>(`/api/moves${qs({ ...params, status, page: next, limit: 200 })}`);
+        rows.push(...batch.items);
+        if (rows.length >= batch.total || batch.items.length === 0) break;
+      }
+      downloadCsv(
+        `move-history-${todayISO()}.csv`,
+        ["Reference", "Type", "Date", "Contact", "Product", "SKU", "From", "To", "Direction", "Quantity", "Unit", "Status"],
+        rows.map((move) => [
+          move.reference,
+          OPERATION_META[move.type].label,
+          formatDate(move.date),
+          move.contact,
+          move.productName,
+          move.sku,
+          move.from,
+          move.to,
+          move.direction,
+          move.direction === "out" ? -move.quantity : move.quantity,
+          move.uom,
+          STATUS_LABELS[move.status],
+        ]),
+      );
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Move History"
         description="Every product movement between locations. Incoming moves are green, outgoing moves red."
+        actions={
+          <Button variant="outline" onClick={exportCsv} disabled={exporting || !data?.total}>
+            {exporting ? <Spinner /> : <Download />} Export CSV
+          </Button>
+        }
       />
       <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-center gap-2 border-b p-3">

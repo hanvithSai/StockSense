@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Boxes, ChevronRight, RefreshCcw } from "lucide-react";
+import { Boxes, ChevronRight, Download, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
@@ -20,7 +20,8 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useCategories, useLocations, useWarehouses } from "@/hooks/use-reference-data";
 import { api, qs } from "@/lib/api-client";
 import { LIVE_REFRESH_MS } from "@/lib/constants";
-import { formatCurrency, formatQty } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
+import { formatCurrency, formatQty, todayISO } from "@/lib/format";
 import type { ProductRowDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,25 @@ export function StockView() {
     });
 
   const totalValue = data?.reduce((total, row) => total + row.value, 0) ?? 0;
+
+  function exportCsv() {
+    downloadCsv(
+      `stock-${todayISO()}.csv`,
+      ["Product", "SKU", "Category", "Unit", "Cost per unit", "On hand", "Reserved", "Free to use", "Value", "Status"],
+      (data ?? []).map((row) => [
+        row.name,
+        row.sku,
+        row.category?.name,
+        row.uom,
+        row.costPrice,
+        row.onHand,
+        row.reserved,
+        row.free,
+        row.value,
+        row.status,
+      ]),
+    );
+  }
   const locationOptions = locations
     .filter((item) => !warehouse || item.warehouse?.id === warehouse)
     .map((item) => ({ value: item.id, label: item.fullName }));
@@ -65,6 +85,11 @@ export function StockView() {
       <PageHeader
         title="Stock"
         description="Available stock per product and location. Update counts directly from here; every change is logged."
+        actions={
+          <Button variant="outline" onClick={exportCsv} disabled={!data?.length}>
+            <Download /> Export CSV
+          </Button>
+        }
       />
 
       <Card className="gap-0 py-0">

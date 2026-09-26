@@ -199,7 +199,7 @@ export function DashboardView() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5 [&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-1">
           <Kpi
             label="Products in stock"
             value={kpis.productsInStock}
