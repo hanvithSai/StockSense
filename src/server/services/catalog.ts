@@ -1,0 +1,221 @@
+import { isValidObjectId, type Types } from "mongoose";
+import type { StockStatus } from "@/lib/constants";
+import { round3 } from "@/lib/format";
+import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
+import type {
+  CategoryInput,
+  ProductCreateInput,
+  ProductInput,
+  ReorderRuleInput,
+} from "@/lib/validation/master";
+import { withTransaction } from "@/server/db";
+import { conflict, notFound, validationError } from "@/server/errors";
+import { Category, type CategoryRecord } from "@/server/models/category";
+import { Operation } from "@/server/models/operation";
+import { Product } from "@/server/models/product";
+import { ReorderRule } from "@/server/models/reorder-rule";
+import { StockQuant } from "@/server/models/stock-quant";
+import { Warehouse } from "@/server/models/warehouse";
+import { createAppliedAdjustment, type Actor } from "./inventory";
+import { getStockOverview, stockStatus, type StockScope } from "./stock";
+
+/* -------------------------------------------------------------- categories */
+
+export async function listCategories(): Promise<CategoryDTO[]> {
+  const [categories, counts] = await Promise.all([
+    Category.find().sort({ name: 1 }).lean<CategoryRecord[]>(),
+    Product.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { isActive: true } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+    ]),
+  ]);
+  const byCategory = new Map(counts.map((row) => [row._id?.toString(), row.count]));
+  return categories.map((category) => ({
+    id: category._id.toString(),
+    name: category.name,
+    description: category.description ?? "",
+    productCount: byCategory.get(category._id.toString()) ?? 0,
+  }));
+}
+
+export async function createCategory(input: CategoryInput): Promise<string> {
+  const category = await Category.create(input);
+  return category._id.toString();
+}
+
+export async function updateCategory(id: string, input: CategoryInput): Promise<void> {
+  const category = isValidObjectId(id) ? await Category.findByIdAndUpdate(id, input, { runValidators: true }) : null;
+  if (!category) throw notFound("Category");
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  if (!isValidObjectId(id)) throw notFound("Category");
+  if (await Product.exists({ category: id })) {
+    throw conflict("Move or delete the products of this category first");
+  }
+  const deleted = await Category.findByIdAndDelete(id);
+  if (!deleted) throw notFound("Category");
+}
+
+/* ---------------------------------------------------------------- products */
+
+export interface ProductListOptions extends StockScope {
+  stock?: StockStatus;
+  archived?: boolean;
+}
+
+export async function listProducts(
+  options: ProductListOptions,
+  paging: { page: number; limit: number; skip: number },
+): Promise<Paginated<ProductRowDTO>> {
+  const rows = await getStockOverview({ ...options, includeArchived: options.archived });
+  const filtered = rows.filter(
+    (row) => (!options.stock || row.status === options.stock) && (!options.archived || !row.isActive),
+  );
+  return {
+    items: filtered.slice(paging.skip, paging.skip + paging.limit),
+    total: filtered.length,
+    page: paging.page,
+    limit: paging.limit,
+  };
+}
+
+export async function getProduct(id: string): Promise<ProductRowDTO> {
+  if (!isValidObjectId(id)) throw notFound("Product");
+  const [row] = await getStockOverview({ productIds: [id], includeArchived: true });
+  if (!row) throw notFound("Product");
+  return row;
+}
+
+async function assertCategory(id: string) {
+  if (!(await Category.exists({ _id: id }))) throw validationError({ category: "Select a valid category" });
+}
+
+/** Creates a product; the optional initial stock is booked as an inventory adjustment (ledger entry). */
+export async function createProduct(input: ProductCreateInput, actor: Actor): Promise<string> {
+  await assertCategory(input.category);
+  const { initialQuantity, initialLocation, ...fields } = input;
+  return withTransaction(async (session) => {
+    const [product] = await Product.create([fields], { session });
+    if (initialQuantity && initialQuantity > 0 && initialLocation) {
+      await createAppliedAdjustment(session, {
+        location: initialLocation,
+        lines: [{ product: product._id.toString(), quantity: initialQuantity }],
+        notes: "Initial stock",
+        actor,
+      });
+    }
+    return product._id.toString();
+  });
+}
+
+export async function updateProduct(id: string, input: ProductInput): Promise<void> {
+  await assertCategory(input.category);
+  const product = isValidObjectId(id) ? await Product.findById(id) : null;
+  if (!product) throw notFound("Product");
+  product.set(input);
+  await product.save();
+}
+
+export async function setProductActive(id: string, isActive: boolean): Promise<void> {
+  const product = isValidObjectId(id) ? await Product.findById(id) : null;
+  if (!product) throw notFound("Product");
+  if (!isActive) {
+    const [stock, open] = await Promise.all([
+      StockQuant.exists({ product: product._id, quantity: { $gt: 0 } }),
+      Operation.exists({ "lines.product": product._id, status: { $in: ["draft", "waiting", "ready"] } }),
+    ]);
+    if (stock) throw conflict("Products with stock on hand cannot be archived. Adjust the stock to 0 first");
+    if (open) throw conflict("This product is used by open operations");
+  }
+  product.isActive = isActive;
+  await product.save();
+}
+
+/* ----------------------------------------------------------- reorder rules */
+
+interface RuleWithRefs {
+  _id: Types.ObjectId;
+  product: { _id: Types.ObjectId; name: string; sku: string; uom: ReorderRuleDTO["product"]["uom"] } | null;
+  warehouse: { _id: Types.ObjectId; name: string; shortCode: string } | null;
+  minQty: number;
+  maxQty: number;
+}
+
+export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
+  const [rules, totals] = await Promise.all([
+    ReorderRule.find()
+      .populate("product", "name sku uom")
+      .populate("warehouse", "name shortCode")
+      .lean<RuleWithRefs[]>(),
+    StockQuant.aggregate<{ _id: { product: Types.ObjectId; warehouse: Types.ObjectId }; onHand: number }>([
+      { $group: { _id: { product: "$product", warehouse: "$warehouse" }, onHand: { $sum: "$quantity" } } },
+    ]),
+  ]);
+  const onHandMap = new Map(
+    totals.map((row) => [`${row._id.product.toString()}:${row._id.warehouse.toString()}`, round3(row.onHand)]),
+  );
+
+  return rules
+    .filter((rule) => rule.product && rule.warehouse)
+    .map((rule) => {
+      const product = rule.product!;
+      const warehouse = rule.warehouse!;
+      const onHand = onHandMap.get(`${product._id.toString()}:${warehouse._id.toString()}`) ?? 0;
+      const status = stockStatus(
+        onHand,
+        [{ warehouse: warehouse._id, minQty: rule.minQty }],
+        new Map([[warehouse._id.toString(), onHand]]),
+      );
+      return {
+        id: rule._id.toString(),
+        product: { id: product._id.toString(), name: product.name, sku: product.sku, uom: product.uom },
+        warehouse: { id: warehouse._id.toString(), name: warehouse.name, shortCode: warehouse.shortCode },
+        minQty: rule.minQty,
+        maxQty: rule.maxQty,
+        onHand,
+        status,
+        suggestedQty: status === "ok" ? 0 : Math.max(0, round3(rule.maxQty - onHand)),
+      };
+    })
+    .sort((a, b) => a.product.name.localeCompare(b.product.name));
+}
+
+async function assertRuleRefs(input: ReorderRuleInput) {
+  const [product, warehouse] = await Promise.all([
+    Product.exists({ _id: input.product }),
+    Warehouse.exists({ _id: input.warehouse }),
+  ]);
+  const errors: Record<string, string> = {};
+  if (!product) errors.product = "Select a valid product";
+  if (!warehouse) errors.warehouse = "Select a valid warehouse";
+  if (Object.keys(errors).length) throw validationError(errors);
+}
+
+export async function createReorderRule(input: ReorderRuleInput): Promise<string> {
+  await assertRuleRefs(input);
+  if (await ReorderRule.exists({ product: input.product, warehouse: input.warehouse })) {
+    throw validationError({ product: "A rule for this product and warehouse already exists" });
+  }
+  const rule = await ReorderRule.create(input);
+  return rule._id.toString();
+}
+
+export async function updateReorderRule(id: string, input: ReorderRuleInput): Promise<void> {
+  await assertRuleRefs(input);
+  const rule = isValidObjectId(id) ? await ReorderRule.findById(id) : null;
+  if (!rule) throw notFound("Reordering rule");
+  const duplicate = await ReorderRule.exists({
+    _id: { $ne: rule._id },
+    product: input.product,
+    warehouse: input.warehouse,
+  });
+  if (duplicate) throw validationError({ product: "A rule for this product and warehouse already exists" });
+  rule.set(input);
+  await rule.save();
+}
+
+export async function deleteReorderRule(id: string): Promise<void> {
+  const deleted = isValidObjectId(id) ? await ReorderRule.findByIdAndDelete(id) : null;
+  if (!deleted) throw notFound("Reordering rule");
+}
