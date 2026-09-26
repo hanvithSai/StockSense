@@ -129,6 +129,7 @@ Without the seed, the first account that signs up becomes the Inventory Manager;
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / server |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript checks |
+| `npm test` | Unit tests (Vitest) for validation rules, stock status, move mapping and helpers |
 | `npm run seed` | Demo data, replayed through the real stock engine |
 
 ### Deployment
