@@ -10,7 +10,7 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["Ctrl", "K"], label: "Search products and documents, run quick actions" },
   { keys: ["Ctrl", "S"], label: "Save the document you are editing" },
   { keys: ["Ctrl", "Enter"], label: "Post a note in the activity timeline" },
-  { keys: ["Enter"], label: "Add the product typed or scanned in “Scan or type a SKU”" },
+  { keys: ["Enter"], label: "Add the product typed or scanned in the scan box (on a ready delivery: pick it)" },
   { keys: ["Drag"], label: "Move a kanban card to change the operation's status" },
   { keys: ["?"], label: "Show this list" },
 ];

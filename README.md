@@ -27,6 +27,19 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 
 The simplified flow from the problem statement is included in the demo data: receive 100 kg steel (+100), move 40 kg to the production rack (total unchanged), deliver 20 kg (−20), adjust 3 kg damaged (−3), for 77 kg in stock, all visible in the steel ledger.
 
+### Quality at a glance
+
+| Concern | How it is handled |
+|---|---|
+| Real-time data | Everything comes from MongoDB through the REST API; lists, dashboard and badges refresh every 15 s and after every change |
+| Consistency | Every stock change runs in a MongoDB transaction; quantities can never go negative or below what is reserved |
+| Validation | One set of Zod schemas and business rules checks every form in the browser and every request on the server, backed by database constraints |
+| Security | Role-based capabilities enforced by the API, httpOnly signed sessions, bcrypt, hashed OTP codes, login lockout, same-origin checks, security headers |
+| Accountability | Append-only audit trail with the author of every action; team notes on records |
+| Accessibility | Automated WCAG 2.1 AA checks (axe) on the main pages in light and dark themes: no violations |
+| Tests | Unit tests for rules and helpers; engine tests run the real stock engine on an in-memory MongoDB replica set |
+| Offline / local | `docker compose up -d` gives a local MongoDB replica set; no external service is required (SMTP optional) |
+
 ## Screenshots
 
 | Dashboard | Operation with activity timeline |
