@@ -1,4 +1,4 @@
-import { route, searchParam, todayParam } from "@/server/http";
+import { route, searchParam, timeZoneParam, todayParam } from "@/server/http";
 import { getDashboard } from "@/server/services/dashboard";
 
 export const GET = route({}, async ({ req }) =>
@@ -7,5 +7,6 @@ export const GET = route({}, async ({ req }) =>
     location: searchParam(req, "location"),
     category: searchParam(req, "category"),
     today: todayParam(req),
+    timeZone: timeZoneParam(req),
   }),
 );

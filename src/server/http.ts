@@ -121,6 +121,18 @@ export function todayParam(req: NextRequest): string {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : todayISO();
 }
 
+/** The client's IANA time zone (`tz=Asia/Kolkata`), falling back to UTC when missing or unknown. */
+export function timeZoneParam(req: NextRequest): string {
+  const value = searchParam(req, "tz");
+  if (!value) return "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return value;
+  } catch {
+    return "UTC";
+  }
+}
+
 /** Reads an optional JSON body (empty body => `{}`). */
 export async function optionalBody(req: NextRequest): Promise<unknown> {
   const text = await req.text();

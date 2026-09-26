@@ -216,6 +216,15 @@ export interface OperationTypeStats {
   upcoming: number;
 }
 
+/** Validated operations per day and type. */
+export interface ActivityPointDTO {
+  date: string;
+  receipt: number;
+  delivery: number;
+  internal: number;
+  adjustment: number;
+}
+
 export interface DashboardDTO {
   kpis: {
     productsInStock: number;
@@ -228,6 +237,7 @@ export interface DashboardDTO {
     stockValue: number;
   };
   operations: Record<OperationType, OperationTypeStats>;
+  activity: ActivityPointDTO[];
   alerts: ProductRowDTO[];
   recentMoves: MoveRowDTO[];
 }

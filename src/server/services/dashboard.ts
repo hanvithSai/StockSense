@@ -6,6 +6,7 @@ import {
 } from "@/lib/constants";
 import { escapeRegex, round3 } from "@/lib/format";
 import type {
+  ActivityPointDTO,
   AlertsDTO,
   DashboardDTO,
   OperationTypeStats,
@@ -23,6 +24,44 @@ export interface DashboardFilters {
   location?: string;
   category?: string;
   today: string;
+  /** IANA time zone of the user, used to bucket activity by local day. */
+  timeZone: string;
+}
+
+const ACTIVITY_DAYS = 14;
+
+/** The `count` calendar days ending at `today` (inclusive), as `YYYY-MM-DD`. */
+function lastDays(today: string, count: number): string[] {
+  const [year, month, day] = today.split("-").map(Number);
+  return Array.from({ length: count }, (_, index) =>
+    new Date(Date.UTC(year, month - 1, day - (count - 1 - index))).toISOString().slice(0, 10),
+  );
+}
+
+async function getActivity(filters: DashboardFilters, match: Record<string, unknown>): Promise<ActivityPointDTO[]> {
+  const days = lastDays(filters.today, ACTIVITY_DAYS);
+  const since = new Date(`${days[0]}T00:00:00Z`);
+  since.setUTCDate(since.getUTCDate() - 1);
+
+  const rows = await Operation.aggregate<{ _id: { day: string; type: OperationType }; count: number }>([
+    { $match: { ...match, status: "done", doneAt: { $gte: since } } },
+    {
+      $group: {
+        _id: {
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$doneAt", timezone: filters.timeZone } },
+          type: "$type",
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const points = new Map(days.map((date) => [date, { date, receipt: 0, delivery: 0, internal: 0, adjustment: 0 }]));
+  for (const row of rows) {
+    const point = points.get(row._id.day);
+    if (point) point[row._id.type] = row.count;
+  }
+  return [...points.values()];
 }
 
 const emptyStats = (): OperationTypeStats => ({
@@ -44,7 +83,7 @@ function byUrgency(a: ProductRowDTO, b: ProductRowDTO) {
 export async function getDashboard(filters: DashboardFilters): Promise<DashboardDTO> {
   const match = buildOperationMatch({ ...filters });
 
-  const [stock, facets, recent] = await Promise.all([
+  const [stock, facets, recent, activity] = await Promise.all([
     getStockOverview({ warehouse: filters.warehouse, location: filters.location, category: filters.category }),
     Operation.aggregate<{
       byStatus: { _id: { type: OperationType; status: OperationStatus }; count: number }[];
@@ -67,6 +106,7 @@ export async function getDashboard(filters: DashboardFilters): Promise<Dashboard
       },
     ]),
     listMoves({ ...filters, doneOnly: true }, { page: 1, limit: 6, skip: 0 }),
+    getActivity(filters, match),
   ]);
 
   const operations = Object.fromEntries(OPERATION_TYPES.map((type) => [type, emptyStats()])) as Record<
@@ -91,6 +131,7 @@ export async function getDashboard(filters: DashboardFilters): Promise<Dashboard
       stockValue: round3(stock.reduce((total, row) => total + row.value, 0)),
     },
     operations,
+    activity,
     alerts: stock.filter((row) => row.status !== "ok").sort(byUrgency).slice(0, 6),
     recentMoves: recent.items,
   };

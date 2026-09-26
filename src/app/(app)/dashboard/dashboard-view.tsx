@@ -41,6 +41,7 @@ import {
 import { formatCompact, formatDate, formatRelative, todayISO } from "@/lib/format";
 import type { DashboardDTO, OperationListDTO, OperationTypeStats } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ActivityChart } from "./activity-chart";
 
 const DOC_TYPE_TABS: Record<OperationType, string> = {
   receipt: "Receipts",
@@ -140,9 +141,10 @@ export function DashboardView() {
   const { data: categories = [] } = useCategories();
 
   const scope = { warehouse, location, category, today: todayISO() };
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { data } = useQuery({
     queryKey: ["dashboard", scope],
-    queryFn: () => api<DashboardDTO>(`/api/dashboard${qs(scope)}`),
+    queryFn: () => api<DashboardDTO>(`/api/dashboard${qs({ ...scope, tz: timeZone })}`),
     placeholderData: keepPreviousData,
     refetchInterval: LIVE_REFRESH_MS,
   });
@@ -257,8 +259,9 @@ export function DashboardView() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="gap-0 pb-0 xl:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-3 xl:items-start">
+        <div className="space-y-6 xl:col-span-2">
+          <Card className="gap-0 pb-0">
           <CardHeader className="gap-3 border-b pb-4">
             <CardTitle>Operations</CardTitle>
             <CardDescription>Filter by document type, status, warehouse, location or category.</CardDescription>
@@ -319,9 +322,48 @@ export function DashboardView() {
               )}
             </TableBody>
           </Table>
-        </Card>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent moves</CardTitle>
+              <CardDescription>Latest validated stock movements.</CardDescription>
+              <CardAction>
+                <Button variant="link" size="sm" asChild>
+                  <Link href="/move-history">View all</Link>
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              {!data ? (
+                <Skeleton className="h-24" />
+              ) : data.recentMoves.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No validated moves yet.</p>
+              ) : (
+                <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+                  {data.recentMoves.map((move) => (
+                    <Link
+                      key={move.id}
+                      href={operationPath(move.type, move.operationId)}
+                      className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition hover:bg-muted/60"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{move.productName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          <span className="font-mono">{move.reference}</span> · {formatRelative(move.date)}
+                        </p>
+                      </div>
+                      <MoveQuantity direction={move.direction} quantity={move.quantity} uom={move.uom} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="space-y-6">
+          {data ? <ActivityChart data={data.activity} /> : <Skeleton className="h-64 rounded-xl" />}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -360,35 +402,6 @@ export function DashboardView() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent moves</CardTitle>
-              <CardAction>
-                <Button variant="link" size="sm" asChild>
-                  <Link href="/move-history">View all</Link>
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!data ? (
-                <Skeleton className="h-24" />
-              ) : data.recentMoves.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No validated moves yet.</p>
-              ) : (
-                data.recentMoves.map((move) => (
-                  <Link key={move.id} href={operationPath(move.type, move.operationId)} className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{move.productName}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        <span className="font-mono">{move.reference}</span> · {formatRelative(move.date)}
-                      </p>
-                    </div>
-                    <MoveQuantity direction={move.direction} quantity={move.quantity} uom={move.uom} />
-                  </Link>
-                ))
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
