@@ -47,7 +47,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     if (response.status === 401 && typeof window !== "undefined" && !path.startsWith("/api/auth/")) {
       // Session expired: full reload to the login page so no stale client state survives.
       const login = new URL("/login", window.location.origin);
-      login.searchParams.set("next", window.location.pathname);
+      login.searchParams.set("next", `${window.location.pathname}${window.location.search}`);
       window.location.replace(login.href);
     }
     throw new ApiError(

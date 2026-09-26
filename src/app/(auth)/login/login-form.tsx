@@ -18,8 +18,11 @@ const DEMO_ACCOUNTS = [
   { label: "Warehouse Staff", loginId: "warehouse", password: "Staff@1234" },
 ];
 
+/** Only returns to a page of this app: `//host` and `/\host` style values resolve to another origin and are ignored. */
 function safeNext(value: string | null) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
+  if (!value?.startsWith("/")) return "/dashboard";
+  const url = new URL(value, window.location.origin);
+  return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : "/dashboard";
 }
 
 export function LoginForm({ demo }: { demo: boolean }) {
