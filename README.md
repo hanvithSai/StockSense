@@ -12,18 +12,18 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 |---|---|
 | **Authentication** | Sign up / log in with Login ID or email, **OTP-based password reset** (6-digit code, 10 min expiry, 5 attempts, resend cooldown), signed httpOnly session cookie, redirect to the dashboard |
 | **Roles** | *Inventory Manager* plans receipts and deliveries and manages master data and users (including creating accounts with a temporary password). *Warehouse Staff* picks, packs, validates, transfers and counts. Enforced by the API and mirrored in the UI |
-| **Dashboard** | KPIs: products in stock, low / out of stock, pending receipts, pending deliveries, scheduled transfers. Receipt / delivery / transfer cards (to process, late, waiting, upcoming). **Dynamic filters** by document type, status, warehouse, location and category. Low stock alerts and recent moves. Live refresh |
+| **Dashboard** | KPIs: products in stock, low / out of stock, pending receipts, pending deliveries, scheduled transfers. Receipt / delivery / transfer cards (to process, late, waiting, upcoming). **Dynamic filters** by document type, status, warehouse, location and category. **My work** (open operations assigned to you, most urgent first), **team activity** feed, low stock alerts and recent moves. Live refresh |
 | **Products** | Create / update products (name, SKU, category, unit of measure, cost, optional initial stock), stock per location, stock-level chart, categories, **reordering rules** (min / max) and **forecasts** (on hand + incoming − outgoing) with one-click replenishment receipts, printable **barcode labels** |
 | **Receipts** | Supplier, destination, products and quantities (pick from a searchable list or **scan the SKU barcode**): Draft → To Do → Ready → **Validate: stock increases** |
 | **Delivery orders** | Stock is reserved on To Do (or **Waiting** when short, with the line marked red). **Pick → Pack → Validate: stock decreases**. Waiting orders become Ready automatically when stock arrives |
 | **Internal transfers** | Between racks, floors or warehouses (e.g. Main Store → Production Rack). Total stock unchanged, location updated |
-| **Inventory adjustments** | Pick a location, enter counted quantities, and the system applies and logs the difference. Quick "Update stock" from the Stock page |
+| **Inventory adjustments** | Pick a location, enter counted quantities, and the system applies and logs the difference. **Count a location** in one click: a draft adjustment pre-filled with everything stored there, plus a printable **blind count sheet** (recorded quantities hidden). Quick "Update stock" from the Stock page |
 | **Move history & ledger** | Every move with from → to, incoming in green, outgoing in red. List and kanban views, search by reference, contact or product. Per-product ledger with running balance |
-| **Kanban boards** | Every operation list has a kanban view; **drag a card to another column** to run the real transition (To Do, check availability, pick → pack → validate, cancel, reset), with role checks |
+| **Kanban boards and bulk actions** | Every operation list has a kanban view; **drag a card to another column** to run the real transition (To Do, check availability, pick → pack → validate, cancel, reset), with role checks. In list view, **select rows** to mark them To Do, validate or cancel them in one go, with a per-operation report of anything that could not be processed |
 | **Reports** | Stock valuation, goods received vs shipped (value per day), on-time rate, delivery lead time, days of cover and turnover, value by category and warehouse, top products shipped, slow movers, operations by status |
 | **Audit trail** | Every create, change and state transition is recorded with its author: an activity timeline (with **team notes**) on each operation and product, and a filterable, exportable Audit Log for managers |
 | **Excel in, Excel out** | CSV product import with preview, flexible column names, row-level validation and a report; CSV export of stock, move history, reports and the audit log |
-| **Also** | References like `WH/IN/0001`, printable documents, duplicate operations, multi-warehouse, global search and quick actions (Ctrl K), save with Ctrl S, keyboard shortcuts reference (?), drill-down links from the dashboard to filtered lists, "to process" badges, "Assigned to me" filter, getting-started checklist, live sync indicator, protection against conflicting edits, login lockout, security headers, light / dark theme, responsive layout, public landing page |
+| **Also** | References like `WH/IN/0001`, printable documents, duplicate operations, multi-warehouse, global search and quick actions (Ctrl K), save with Ctrl S, keyboard shortcuts reference (?), drill-down links from the dashboard to filtered lists, "to process" badges, "Assigned to me" filter, getting-started checklist, live sync indicator, protection against conflicting edits, login lockout, security headers, light / dark theme, responsive layout, **installable app** (web app manifest), public landing page |
 
 The simplified flow from the problem statement is included in the demo data: receive 100 kg steel (+100), move 40 kg to the production rack (total unchanged), deliver 20 kg (−20), adjust 3 kg damaged (−3), for 77 kg in stock, all visible in the steel ledger.
 
@@ -110,13 +110,14 @@ All endpoints return `{ data }` or `{ error: { code, message, fields } }`.
 | POST | `/api/products/import` | Bulk CSV import with a per-row report |
 | GET | `/api/stock`, `/api/stock/availability` | Stock per product / location |
 | POST | `/api/stock/adjust` | Quick stock count (booked as an adjustment) |
-| GET, POST | `/api/operations` | List (filters: type, status, warehouse, location, category, responsible, q, late) / create |
+| POST | `/api/stock/count` | Start a full count of a location (draft adjustment with every stored product) |
+| GET, POST | `/api/operations` | List (filters: type, status, warehouse, location, category, responsible, q, late; `sort=schedule` for most urgent first) / create |
 | GET | `/api/operations/counts` | Work to process per operation type |
 | GET, PATCH, DELETE | `/api/operations/:id` | Read / edit / delete draft |
 | POST | `/api/operations/:id/{confirm, check-availability, pick, pack, validate, cancel, reset}` | State transitions |
 | GET | `/api/moves`, `/api/dashboard`, `/api/alerts`, `/api/search` | Move history, KPIs, alerts, global search |
 | GET | `/api/reports?days=7\|30\|90` | Analytics: valuation, movement value, service level, velocity |
-| GET, POST | `/api/audit` | Record timeline (`entityType` + `entityId`) or the full audit trail (managers); POST logs a team note |
+| GET, POST | `/api/audit` | Record timeline (`entityType` + `entityId`), team feed (`feed=team`) or the full audit trail (managers); POST logs a team note |
 
 ## Getting started
 
@@ -152,7 +153,7 @@ Without the seed, the first account that signs up becomes the Inventory Manager;
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / server |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript checks |
-| `npm test` | Unit tests (Vitest) for validation rules, stock status, move mapping and helpers |
+| `npm test` | Unit tests (Vitest) for validation rules, permissions, transitions, stock status, move mapping and helpers |
 | `npm run seed` | Realistic demo workspace (`-- --reset` wipes existing data first) |
 
 ### Deployment
@@ -175,5 +176,6 @@ src/
   server/              database, models, auth, services (inventory engine, audit, reports, queries)
   proxy.ts             session gate for pages
 public/screens/        product screenshots (landing page and README)
+public/icons/          app icons for the web app manifest
 scripts/seed.ts        realistic demo data
 ```
