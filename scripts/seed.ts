@@ -22,7 +22,7 @@ import { hashPassword } from "../src/server/auth/password";
 import { connectDB } from "../src/server/db";
 import * as models from "../src/server/models";
 import { summarizeLines } from "../src/server/services/audit";
-import { createOperation, runOperationAction, type Actor } from "../src/server/services/inventory";
+import { createOperation, createReturn, runOperationAction, type Actor } from "../src/server/services/inventory";
 import { ensureSystemLocations, getSystemLocation } from "../src/server/services/system-locations";
 
 /* ----------------------------------------------------------------- helpers */
@@ -833,7 +833,7 @@ async function main() {
     lines: [string, number][],
     actions: OperationAction[],
     creator = actorOf(admin),
-  ) {
+  ): Promise<string | null> {
     try {
       const id = await createOperation(
         {
@@ -852,8 +852,10 @@ async function main() {
       for (const action of actions) {
         await runOperationAction(id, action, action === "pick" ? { picked: true } : action === "pack" ? { packed: true } : {}, action === "confirm" ? creator : kavya);
       }
+      return id;
     } catch (error) {
       console.warn(`  skipped ${type}: ${(error as Error).message}`);
+      return null;
     }
   }
   const blr = stockOf("BLR");
@@ -873,6 +875,26 @@ async function main() {
   await open("internal", { source: main, dest: warehouses.WH.locations.prod, day: 0, notes: "Materials for tomorrow's production run" }, [["FOAM001", 10], ["FAB001", 15]], ["confirm"], kavya);
   await open("internal", { source: bulk, dest: main, day: 1, notes: "Replenish packaging from Medchal depot" }, [["BOX001", 100]], [], kavya);
   await open("adjustment", { dest: warehouses.WH.locations.rackA, day: 1, notes: "Quarterly count of Rack A" }, [["SCREW001", 20]], [], kavya);
+
+  // A partial receipt with its backorder and a customer return, so both flows show in lists and the team feed.
+  const tables = await open("receipt", { dest: main, contact: "Godrej Interio", day: 0 }, [["TABLE002", 6]], ["confirm"]);
+  try {
+    if (tables) {
+      const [line] = (await models.Operation.findById(tables).lean())!.lines;
+      await runOperationAction(tables, "split", { validate: true, lines: [{ lineId: line._id.toString(), quantity: 4 }] }, kavya);
+    }
+    const shipped = await models.Operation.findOne({ type: "delivery", status: "done", sourceLocation: main._id, "lines.sku": "LAMP001" })
+      .sort({ doneAt: -1 })
+      .lean();
+    const lamp = shipped?.lines.find((line) => line.sku === "LAMP001");
+    if (shipped && lamp) {
+      const { id } = await createReturn(shipped._id.toString(), [{ lineId: lamp._id.toString(), quantity: 1 }], actorOf(admin));
+      await runOperationAction(id, "confirm", {}, actorOf(admin));
+      await runOperationAction(id, "validate", {}, kavya);
+    }
+  } catch (error) {
+    console.warn(`  skipped backorder and return examples: ${(error as Error).message}`);
+  }
 
   const [operations, lines, logs] = await Promise.all([
     models.Operation.countDocuments(),
