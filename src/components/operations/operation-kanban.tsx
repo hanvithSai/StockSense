@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
 import { useSession } from "@/components/layout/session-context";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { api, errorMessage, qs } from "@/lib/api-client";
+import { errorMessage } from "@/lib/api-client";
 import {
   OPERATION_META,
   operationPath,
@@ -16,14 +16,12 @@ import {
   type OperationStatus,
   type OperationType,
 } from "@/lib/constants";
-import { formatDate, initials, todayISO } from "@/lib/format";
-import { transitionActions } from "@/lib/operation-transitions";
-import { manageCapability } from "@/lib/permissions";
-import type { OperationActionResult, OperationListItemDTO } from "@/lib/types";
+import { formatDate, initials } from "@/lib/format";
+import { runTransition, transitionActions } from "@/lib/operation-transitions";
+import { actionCapability } from "@/lib/permissions";
+import type { OperationListItemDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { OperationAction } from "@/lib/validation/operations";
-
-const ACTION_BODY: Partial<Record<OperationAction, unknown>> = { pick: { picked: true }, pack: { packed: true } };
 
 export function OperationKanban({ type, items }: { type: OperationType; items: OperationListItemDTO[] }) {
   const queryClient = useQueryClient();
@@ -35,33 +33,18 @@ export function OperationKanban({ type, items }: { type: OperationType; items: O
 
   const allowed = (actions: OperationAction[] | null) =>
     Boolean(actions) &&
-    actions!.every((action) => can(action === "cancel" || action === "reset" ? manageCapability(type) : "operation:process"));
+    actions!.every((action) => can(actionCapability(type, action)));
 
   async function move(item: OperationListItemDTO, to: OperationStatus) {
     const actions = transitionActions(type, item.status, to);
     if (!actions || !allowed(actions)) return;
     setBusy(item.id);
-    const run = async () => {
-      let result: OperationActionResult | null = null;
-      for (const action of actions) {
-        result = await api<OperationActionResult>(`/api/operations/${item.id}/${action}${qs({ today: todayISO() })}`, {
-          method: "POST",
-          body: ACTION_BODY[action] ?? {},
-        });
-        if (result.operation.status === "waiting" && to !== "waiting") {
-          throw new Error(
-            `${item.reference} is waiting for stock: ${result.shortages.map((s) => `${s.productName} (${s.available} free)`).join(", ")}`,
-          );
-        }
-      }
-      return result!;
-    };
-    const promise = run();
+    const promise = runTransition(item.id, actions, { allowWaiting: to === "waiting" });
     toast.promise(promise, {
       loading: `Moving ${item.reference} to ${STATUS_LABELS[to]}…`,
       success: (result) =>
         `${item.reference} is now ${STATUS_LABELS[result.operation.status]}${result.promoted.length ? ` · now ready: ${result.promoted.join(", ")}` : ""}`,
-      error: (error) => errorMessage(error),
+      error: (error) => `${item.reference}: ${errorMessage(error)}`,
     });
     try {
       await promise;

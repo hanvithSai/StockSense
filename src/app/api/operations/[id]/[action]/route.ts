@@ -1,4 +1,4 @@
-import { can, manageCapability, type Capability } from "@/lib/permissions";
+import { actionCapability, can } from "@/lib/permissions";
 import type { OperationActionResult } from "@/lib/types";
 import { OPERATION_ACTIONS, type OperationAction } from "@/lib/validation/operations";
 import { forbidden, notFound } from "@/server/errors";
@@ -12,9 +12,7 @@ export const POST = route({}, async ({ req, params, user }): Promise<OperationAc
   if (!OPERATION_ACTIONS.includes(action)) throw notFound("Action");
 
   const type = await getOperationType(params.id);
-  const capability: Capability =
-    action === "cancel" || action === "reset" ? manageCapability(type) : "operation:process";
-  if (!can(user.role, capability)) throw forbidden();
+  if (!can(user.role, actionCapability(type, action))) throw forbidden();
 
   const outcome = await runOperationAction(params.id, action, await optionalBody(req), user);
   return { operation: await getOperation(params.id, todayParam(req)), ...outcome };

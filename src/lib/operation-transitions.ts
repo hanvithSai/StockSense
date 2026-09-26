@@ -1,4 +1,7 @@
+import { api, qs } from "./api-client";
 import type { OperationStatus, OperationType } from "./constants";
+import { todayISO } from "./format";
+import type { OperationActionResult } from "./types";
 import type { OperationAction } from "./validation/operations";
 
 /**
@@ -22,4 +25,30 @@ export function transitionActions(type: OperationType, from: OperationStatus, to
   if (from === "draft") return ["confirm", ...finish];
   if (from === "ready") return finish;
   return null;
+}
+
+const ACTION_BODY: Partial<Record<OperationAction, unknown>> = { pick: { picked: true }, pack: { packed: true } };
+
+/**
+ * Runs the engine actions of a status change one after another (kanban drops, bulk actions).
+ * Throws a readable error when stock is short and the operation ends up waiting, unless waiting is acceptable.
+ */
+export async function runTransition(
+  id: string,
+  actions: OperationAction[],
+  { allowWaiting = false }: { allowWaiting?: boolean } = {},
+): Promise<OperationActionResult> {
+  let result: OperationActionResult | null = null;
+  for (const action of actions) {
+    result = await api<OperationActionResult>(`/api/operations/${id}/${action}${qs({ today: todayISO() })}`, {
+      method: "POST",
+      body: ACTION_BODY[action] ?? {},
+    });
+    if (result.operation.status === "waiting" && !allowWaiting) {
+      const short = result.shortages.map((shortage) => `${shortage.productName}: ${shortage.available} free`).join(", ");
+      throw new Error(`waiting for stock${short ? ` (${short})` : ""}`);
+    }
+  }
+  if (!result) throw new Error("Nothing to run");
+  return result;
 }

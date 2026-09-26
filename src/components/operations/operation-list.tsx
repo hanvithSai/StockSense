@@ -14,10 +14,12 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { ViewToggle, type ViewMode } from "@/components/common/view-toggle";
 import { useSession } from "@/components/layout/session-context";
+import { BulkActions, isBulkSelectable } from "@/components/operations/bulk-actions";
 import { OperationKanban } from "@/components/operations/operation-kanban";
 import { CountLocationDialog } from "@/components/stock/count-location-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Toggle } from "@/components/ui/toggle";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -67,6 +69,7 @@ export function OperationList({ type }: { type: OperationType }) {
   const [late, setLate] = useState(searchParams.get("late") === "1");
   const [page, setPage] = useState(1);
   const [counting, setCounting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const q = useDebouncedValue(search.trim(), 250);
   const { data: warehouses = [] } = useWarehouses();
 
@@ -92,12 +95,25 @@ export function OperationList({ type }: { type: OperationType }) {
   const statuses: OperationStatus[] = [...meta.flow, "cancelled"];
   const total = Object.values(data?.statusCounts ?? {}).reduce((sum, count) => sum + (count ?? 0), 0);
   const isAdjustment = type === "adjustment";
-  const columnCount = isAdjustment ? 5 : 6;
+  const columnCount = isAdjustment ? 6 : 7;
 
   const reset = <T,>(setter: (value: T) => void) => (value: T) => {
     setter(value);
     setPage(1);
+    setSelectedIds(new Set());
   };
+
+  // Selection only ever covers rows on screen, so a refresh or filter change can never act on hidden rows.
+  const selectable = (data?.items ?? []).filter(isBulkSelectable);
+  const selected = selectable.filter((item) => selectedIds.has(item.id));
+  const allSelected = selectable.length > 0 && selected.length === selectable.length;
+  const toggleRow = (id: string, checked: boolean) =>
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   return (
     <>
@@ -150,11 +166,19 @@ export function OperationList({ type }: { type: OperationType }) {
             <UserRound /> Assigned to me
           </Toggle>
           <div className="ml-auto">
-            <ViewToggle value={view} onChange={setView} />
+            <ViewToggle
+              value={view}
+              onChange={(value) => {
+                setView(value);
+                setSelectedIds(new Set());
+              }}
+            />
           </div>
         </div>
 
-        {!kanban && (
+        {!kanban && selected.length > 0 && <BulkActions type={type} selected={selected} onClear={() => setSelectedIds(new Set())} />}
+
+        {!kanban && selected.length === 0 && (
           <div className="flex gap-1.5 overflow-x-auto border-b px-3 py-2">
             {(["", ...statuses] as const).map((value) => {
               const count = value ? (data?.statusCounts[value] ?? 0) : total;
@@ -187,6 +211,14 @@ export function OperationList({ type }: { type: OperationType }) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10 pr-0">
+                    <Checkbox
+                      checked={allSelected ? true : selected.length ? "indeterminate" : false}
+                      onCheckedChange={(checked) => setSelectedIds(checked ? new Set(selectable.map((item) => item.id)) : new Set())}
+                      disabled={!selectable.length}
+                      aria-label="Select all open operations on this page"
+                    />
+                  </TableHead>
                   <TableHead>Reference</TableHead>
                   {isAdjustment ? (
                     <>
@@ -219,7 +251,20 @@ export function OperationList({ type }: { type: OperationType }) {
                   </TableRow>
                 ) : (
                   data.items.map((item) => (
-                    <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(operationPath(type, item.id))}>
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
+                      data-state={selectedIds.has(item.id) ? "selected" : undefined}
+                      onClick={() => router.push(operationPath(type, item.id))}
+                    >
+                      <TableCell className="pr-0" onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(item.id)}
+                          onCheckedChange={(checked) => toggleRow(item.id, checked === true)}
+                          disabled={!isBulkSelectable(item)}
+                          aria-label={`Select ${item.reference}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-sm font-semibold">{item.reference}</TableCell>
                       {isAdjustment ? (
                         <>
@@ -244,7 +289,17 @@ export function OperationList({ type }: { type: OperationType }) {
                 )}
               </TableBody>
             </Table>
-            {data && <PaginationBar page={data.page} limit={data.limit} total={data.total} onPageChange={setPage} />}
+            {data && (
+              <PaginationBar
+                page={data.page}
+                limit={data.limit}
+                total={data.total}
+                onPageChange={(value) => {
+                  setPage(value);
+                  setSelectedIds(new Set());
+                }}
+              />
+            )}
           </>
         )}
       </Card>

@@ -1,4 +1,5 @@
 import type { OperationType, Role } from "./constants";
+import type { OperationAction } from "./validation/operations";
 
 /**
  * Capabilities are checked by every API route (source of truth) and mirrored in the UI.
@@ -27,4 +28,9 @@ export function can(role: Role | null | undefined, capability: Capability): bool
 /** Capability required to create, edit, cancel or delete an operation of the given type. */
 export function manageCapability(type: OperationType): Capability {
   return type === "receipt" || type === "delivery" ? "operation:plan" : "stock:move";
+}
+
+/** Capability required to run an engine action: cancel and reset belong to planners, the rest to processing. */
+export function actionCapability(type: OperationType, action: OperationAction): Capability {
+  return action === "cancel" || action === "reset" ? manageCapability(type) : "operation:process";
 }
