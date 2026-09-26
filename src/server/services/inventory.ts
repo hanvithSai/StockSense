@@ -11,7 +11,7 @@ import {
   type OperationFields,
 } from "@/lib/validation/operations";
 import { withTransaction } from "@/server/db";
-import { conflict, notFound, validationError } from "@/server/errors";
+import { AppError, conflict, notFound, validationError } from "@/server/errors";
 import { Location, type LocationRecord } from "@/server/models/location";
 import { Operation, type OperationDocument } from "@/server/models/operation";
 import { Product } from "@/server/models/product";
@@ -331,6 +331,9 @@ export async function updateOperation(id: string, data: OperationFields, actor: 
     const status = op.status as OperationStatus;
     if (status === "done" || status === "cancelled") {
       throw conflict("Done or cancelled operations can no longer be edited");
+    }
+    if (data.version && op.updatedAt && new Date(op.updatedAt).toISOString() !== data.version) {
+      throw new AppError(409, "STALE", "Someone else changed this operation meanwhile. Reload to see the latest version.");
     }
     assertRules(type, data);
 

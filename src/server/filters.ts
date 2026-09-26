@@ -22,6 +22,7 @@ export function operationFilters(req: NextRequest): OperationFilters {
     product: searchParam(req, "product"),
     q: searchParam(req, "q"),
     late: searchParam(req, "late") === "1",
+    responsible: searchParam(req, "responsible"),
     today: todayParam(req),
   };
 }

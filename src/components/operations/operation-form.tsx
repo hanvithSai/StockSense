@@ -45,7 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLocations, useProductOptions, useUserOptions, useWarehouses } from "@/hooks/use-reference-data";
-import { api, errorMessage, qs } from "@/lib/api-client";
+import { api, ApiError, errorMessage, qs } from "@/lib/api-client";
 import { OPERATION_META, operationPath, type OperationType } from "@/lib/constants";
 import { formatDateTime, formatQty, round3, todayISO } from "@/lib/format";
 import { manageCapability } from "@/lib/permissions";
@@ -212,13 +212,22 @@ export function OperationForm({ type, operation, prefill }: OperationFormProps) 
     try {
       const updated = await api<OperationDTO>(`/api/operations/${operation.id}${qs({ today: todayISO() })}`, {
         method: "PATCH",
-        body: values,
+        body: { ...values, version: operation.updatedAt },
       });
       await refreshAfter(updated);
       if (!silent) toast.success("Changes saved");
       return true;
     } catch (error) {
-      applyServerErrors(error, form.setError);
+      if (error instanceof ApiError && error.code === "STALE") {
+        toast.error(error.message, {
+          action: {
+            label: "Reload",
+            onClick: () => void queryClient.invalidateQueries({ queryKey: ["operation", operation.id] }),
+          },
+        });
+      } else {
+        applyServerErrors(error, form.setError);
+      }
       return false;
     }
   }

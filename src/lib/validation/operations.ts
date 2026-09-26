@@ -16,6 +16,8 @@ export const operationFieldsSchema = z.object({
   responsible: optionalObjectId,
   notes: shortText(1000, "Notes"),
   lines: z.array(operationLineSchema).max(100, "An operation can have at most 100 products"),
+  /** `updatedAt` the client last saw; stale edits are rejected instead of overwriting newer changes. */
+  version: z.string().optional(),
 });
 export type OperationFields = z.infer<typeof operationFieldsSchema>;
 

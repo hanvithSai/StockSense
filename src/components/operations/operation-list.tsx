@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CalendarClock, Inbox, Plus, TriangleAlert } from "lucide-react";
+import { CalendarClock, Inbox, Plus, TriangleAlert, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -98,9 +98,10 @@ function KanbanBoard({ type, items }: { type: OperationType; items: OperationLis
 
 export function OperationList({ type }: { type: OperationType }) {
   const router = useRouter();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const meta = OPERATION_META[type];
   const [view, setView] = useState<ViewMode>("list");
+  const [mine, setMine] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OperationStatus | "">("");
   const [warehouse, setWarehouse] = useState("");
@@ -116,6 +117,7 @@ export function OperationList({ type }: { type: OperationType }) {
     warehouse,
     status: kanban ? "" : status,
     late: late ? 1 : "",
+    responsible: mine ? user.id : "",
     today: todayISO(),
     page: kanban ? 1 : page,
     limit: kanban ? 200 : 20,
@@ -170,6 +172,15 @@ export function OperationList({ type }: { type: OperationType }) {
             aria-label="Show late operations only"
           >
             <TriangleAlert /> Late
+          </Toggle>
+          <Toggle
+            variant="outline"
+            pressed={mine}
+            onPressedChange={reset(setMine)}
+            className="h-9 data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+            aria-label="Show operations assigned to me"
+          >
+            <UserRound /> Assigned to me
           </Toggle>
           <div className="ml-auto">
             <ViewToggle value={view} onChange={setView} />

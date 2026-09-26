@@ -23,6 +23,8 @@ export interface OperationFilters {
   product?: string;
   q?: string;
   late?: boolean;
+  /** Only operations assigned to this user. */
+  responsible?: string;
   /** Client's local date (`YYYY-MM-DD`) used for "late" / "upcoming" comparisons. */
   today: string;
 }
@@ -55,6 +57,9 @@ export function buildOperationMatch(
 
   const product = toId(filters.product);
   if (product) match["lines.product"] = product;
+
+  const responsible = toId(filters.responsible);
+  if (responsible) match.responsible = responsible;
 
   if (includeSearch && filters.q) {
     const rx = new RegExp(escapeRegex(filters.q), "i");
@@ -182,6 +187,24 @@ export async function getOperation(id: string, today: string): Promise<Operation
     .lean<PopulatedOperationLean>();
   if (!op) throw notFound("Operation");
   return toOperationDTO(op, today);
+}
+
+/** Work waiting for someone, per type: ready receipts/deliveries/transfers and draft counts. */
+export async function getTodoCounts(): Promise<Record<OperationType, number>> {
+  const rows = await Operation.aggregate<{ _id: OperationType; count: number }>([
+    {
+      $match: {
+        $or: [
+          { type: { $in: ["receipt", "delivery", "internal"] }, status: "ready" },
+          { type: "adjustment", status: "draft" },
+        ],
+      },
+    },
+    { $group: { _id: "$type", count: { $sum: 1 } } },
+  ]);
+  const counts = { receipt: 0, delivery: 0, internal: 0, adjustment: 0 };
+  for (const row of rows) counts[row._id] = row.count;
+  return counts;
 }
 
 export async function getOperationType(id: string): Promise<OperationType> {
