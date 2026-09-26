@@ -152,7 +152,7 @@ export function ReorderingView() {
     <>
       <PageHeader
         title="Reordering rules"
-        description="Minimum and maximum stock per warehouse. Products at or below the minimum raise low stock alerts."
+        description="Minimum and maximum stock per warehouse. Alerts use stock on hand; order suggestions use the forecast (on hand + incoming − outgoing)."
         actions={
           <>
             {canPlan && dueCount > 0 && (
@@ -185,6 +185,7 @@ export function ReorderingView() {
               <TableHead className="text-right">Min</TableHead>
               <TableHead className="text-right">Max</TableHead>
               <TableHead className="text-right">On hand</TableHead>
+              <TableHead className="hidden text-right md:table-cell">Forecast</TableHead>
               <TableHead className="hidden text-right sm:table-cell">To order</TableHead>
               <TableHead className="text-right">Status</TableHead>
               <TableHead className="w-32 text-right">Actions</TableHead>
@@ -192,10 +193,10 @@ export function ReorderingView() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableSkeleton columns={8} />
+              <TableSkeleton columns={9} />
             ) : !data?.length ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8}>
+                <TableCell colSpan={9}>
                   <EmptyState icon={RefreshCcw} title="No reordering rules" description="Add a rule to get low stock alerts." />
                 </TableCell>
               </TableRow>
@@ -214,6 +215,7 @@ export function ReorderingView() {
                   <TableCell className="text-right tabular font-medium">
                     {formatQty(rule.onHand)} <span className="text-xs font-normal text-muted-foreground">{rule.product.uom}</span>
                   </TableCell>
+                  <TableCell className="hidden text-right tabular md:table-cell">{formatQty(rule.forecast)}</TableCell>
                   <TableCell className="hidden text-right tabular sm:table-cell">
                     {rule.suggestedQty > 0 ? formatQty(rule.suggestedQty) : "—"}
                   </TableCell>

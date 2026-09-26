@@ -21,7 +21,7 @@ import { StockQuant } from "@/server/models/stock-quant";
 import { Warehouse } from "@/server/models/warehouse";
 import { recordActivity, type AuditActor } from "./audit";
 import { createAppliedAdjustment, createOperation, type Actor } from "./inventory";
-import { getStockOverview, stockStatus, type StockScope } from "./stock";
+import { getPendingMoves, getStockOverview, stockStatus, type StockScope } from "./stock";
 
 /* -------------------------------------------------------------- categories */
 
@@ -276,26 +276,37 @@ interface RuleWithRefs {
   maxQty: number;
 }
 
+/**
+ * Rules with live status. Alerts use stock on hand; the suggested order quantity uses the
+ * forecast (on hand + open receipts - open deliveries), so stock already on order is not ordered twice.
+ */
 export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
-  const [rules, totals] = await Promise.all([
-    ReorderRule.find()
-      .populate("product", "name sku uom")
-      .populate("warehouse", "name shortCode")
-      .lean<RuleWithRefs[]>(),
+  const rules = await ReorderRule.find()
+    .populate("product", "name sku uom")
+    .populate("warehouse", "name shortCode")
+    .lean<RuleWithRefs[]>();
+  const productIds = rules.flatMap((rule) => (rule.product ? [rule.product._id] : []));
+  const [totals, pending] = await Promise.all([
     StockQuant.aggregate<{ _id: { product: Types.ObjectId; warehouse: Types.ObjectId }; onHand: number }>([
       { $group: { _id: { product: "$product", warehouse: "$warehouse" }, onHand: { $sum: "$quantity" } } },
     ]),
+    getPendingMoves(productIds),
   ]);
-  const onHandMap = new Map(
-    totals.map((row) => [`${row._id.product.toString()}:${row._id.warehouse.toString()}`, round3(row.onHand)]),
-  );
+  const key = (product: Types.ObjectId, warehouse: Types.ObjectId) => `${product.toString()}:${warehouse.toString()}`;
+  const onHandMap = new Map(totals.map((row) => [key(row._id.product, row._id.warehouse), round3(row.onHand)]));
+  const netPending = new Map<string, number>();
+  for (const move of pending) {
+    const id = key(move.product, move.warehouse);
+    netPending.set(id, round3((netPending.get(id) ?? 0) + (move.type === "receipt" ? move.quantity : -move.quantity)));
+  }
 
   return rules
     .filter((rule) => rule.product && rule.warehouse)
     .map((rule) => {
       const product = rule.product!;
       const warehouse = rule.warehouse!;
-      const onHand = onHandMap.get(`${product._id.toString()}:${warehouse._id.toString()}`) ?? 0;
+      const onHand = onHandMap.get(key(product._id, warehouse._id)) ?? 0;
+      const forecast = round3(onHand + (netPending.get(key(product._id, warehouse._id)) ?? 0));
       const status = stockStatus(
         onHand,
         [{ warehouse: warehouse._id, minQty: rule.minQty }],
@@ -308,8 +319,9 @@ export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
         minQty: rule.minQty,
         maxQty: rule.maxQty,
         onHand,
+        forecast,
         status,
-        suggestedQty: status === "ok" ? 0 : Math.max(0, round3(rule.maxQty - onHand)),
+        suggestedQty: forecast <= rule.minQty ? Math.max(0, round3(rule.maxQty - forecast)) : 0,
       };
     })
     .sort((a, b) => a.product.name.localeCompare(b.product.name));

@@ -2,6 +2,7 @@ import { isValidObjectId, type Types } from "mongoose";
 import type { StockStatus } from "@/lib/constants";
 import { escapeRegex, round3 } from "@/lib/format";
 import type { AvailabilityDTO, ProductOptionDTO, ProductRowDTO } from "@/lib/types";
+import { Operation } from "@/server/models/operation";
 import { Product } from "@/server/models/product";
 import { ReorderRule } from "@/server/models/reorder-rule";
 import { StockQuant } from "@/server/models/stock-quant";
@@ -48,7 +49,37 @@ export function stockStatus(
   return low ? "low" : "ok";
 }
 
-function buildRow(product: ProductLean, quants: QuantLean[], rules: RuleLean[], scope: StockScope): ProductRowDTO {
+/** Quantity of a product on open receipts (incoming) or open deliveries (outgoing). */
+export interface PendingMove {
+  product: Types.ObjectId;
+  type: "receipt" | "delivery";
+  warehouse: Types.ObjectId;
+  location: Types.ObjectId;
+  quantity: number;
+}
+
+/** Open receipts and deliveries per product, warehouse and location (for forecasts). */
+export async function getPendingMoves(productIds: Types.ObjectId[]): Promise<PendingMove[]> {
+  const rows = await Operation.aggregate<{ _id: Omit<PendingMove, "quantity">; quantity: number }>([
+    { $match: { status: { $in: ["draft", "waiting", "ready"] }, type: { $in: ["receipt", "delivery"] }, "lines.product": { $in: productIds } } },
+    { $unwind: "$lines" },
+    { $match: { "lines.product": { $in: productIds } } },
+    {
+      $group: {
+        _id: {
+          product: "$lines.product",
+          type: "$type",
+          warehouse: "$warehouse",
+          location: { $cond: [{ $eq: ["$type", "receipt"] }, "$destLocation", "$sourceLocation"] },
+        },
+        quantity: { $sum: "$lines.quantity" },
+      },
+    },
+  ]);
+  return rows.map((row) => ({ ...row._id, quantity: round3(row.quantity) }));
+}
+
+function buildRow(product: ProductLean, quants: QuantLean[], rules: RuleLean[], pending: PendingMove[], scope: StockScope): ProductRowDTO {
   const inScope = quants.filter(
     (quant) =>
       (!scope.warehouse || quant.warehouse.toString() === scope.warehouse) &&
@@ -56,6 +87,13 @@ function buildRow(product: ProductLean, quants: QuantLean[], rules: RuleLean[], 
   );
   const onHand = sum(inScope, (quant) => quant.quantity);
   const reserved = sum(inScope, (quant) => quant.reservedQuantity);
+  const pendingInScope = pending.filter(
+    (move) =>
+      (!scope.warehouse || move.warehouse.toString() === scope.warehouse) &&
+      (!scope.location || move.location.toString() === scope.location),
+  );
+  const incoming = sum(pendingInScope.filter((move) => move.type === "receipt"), (move) => move.quantity);
+  const outgoing = sum(pendingInScope.filter((move) => move.type === "delivery"), (move) => move.quantity);
 
   const onHandByWarehouse = new Map<string, number>();
   for (const quant of quants) {
@@ -76,6 +114,9 @@ function buildRow(product: ProductLean, quants: QuantLean[], rules: RuleLean[], 
     onHand,
     reserved,
     free: round3(onHand - reserved),
+    incoming,
+    outgoing,
+    forecast: round3(onHand + incoming - outgoing),
     value: Math.round(onHand * product.costPrice * 100) / 100,
     status: stockStatus(onHand, scopedRules, onHandByWarehouse),
     minQty: scopedRules.length ? sum(scopedRules, (rule) => rule.minQty) : null,
@@ -111,16 +152,18 @@ export async function getStockOverview(scope: StockScope = {}): Promise<ProductR
     .lean<ProductLean[]>();
   const ids = products.map((product) => product._id);
 
-  const [quants, rules] = await Promise.all([
+  const [quants, rules, pending] = await Promise.all([
     StockQuant.find({ product: { $in: ids } }).populate("location", "fullName").lean<QuantLean[]>(),
     ReorderRule.find({ product: { $in: ids } }).lean<RuleLean[]>(),
+    getPendingMoves(ids),
   ]);
   const quantsByProduct = groupBy(quants, (quant) => quant.product.toString());
   const rulesByProduct = groupBy(rules, (rule) => rule.product.toString());
+  const pendingByProduct = groupBy(pending, (move) => move.product.toString());
 
   return products.map((product) => {
     const id = product._id.toString();
-    return buildRow(product, quantsByProduct.get(id) ?? [], rulesByProduct.get(id) ?? [], scope);
+    return buildRow(product, quantsByProduct.get(id) ?? [], rulesByProduct.get(id) ?? [], pendingByProduct.get(id) ?? [], scope);
   });
 }
 

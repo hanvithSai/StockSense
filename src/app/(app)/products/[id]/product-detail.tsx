@@ -117,10 +117,15 @@ export function ProductDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Metric label="On hand" value={`${formatQty(data.onHand)} ${data.uom}`} hint="Across all warehouses" />
-            <Metric label="Reserved" value={formatQty(data.reserved)} hint="Held by confirmed deliveries/transfers" />
+            <Metric label="Reserved" value={formatQty(data.reserved)} hint="Held by confirmed operations" />
             <Metric label="Free to use" value={formatQty(data.free)} hint="On hand minus reserved" />
+            <Metric
+              label="Forecast"
+              value={formatQty(data.forecast)}
+              hint={`+${formatQty(data.incoming)} incoming · −${formatQty(data.outgoing)} outgoing`}
+            />
             <Metric label="Stock value" value={formatCurrency(data.value)} hint={`${formatCurrency(data.costPrice)} per unit`} />
           </div>
 

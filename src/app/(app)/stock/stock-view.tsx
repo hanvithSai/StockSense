@@ -62,7 +62,7 @@ export function StockView() {
   function exportCsv() {
     downloadCsv(
       `stock-${todayISO()}.csv`,
-      ["Product", "SKU", "Category", "Unit", "Cost per unit", "On hand", "Reserved", "Free to use", "Value", "Status"],
+      ["Product", "SKU", "Category", "Unit", "Cost per unit", "On hand", "Reserved", "Free to use", "Incoming", "Outgoing", "Forecast", "Value", "Status"],
       (data ?? []).map((row) => [
         row.name,
         row.sku,
@@ -72,6 +72,9 @@ export function StockView() {
         row.onHand,
         row.reserved,
         row.free,
+        row.incoming,
+        row.outgoing,
+        row.forecast,
         row.value,
         row.status,
       ]),
@@ -121,6 +124,7 @@ export function StockView() {
               <TableHead className="hidden text-right md:table-cell">Per unit cost</TableHead>
               <TableHead className="text-right">On hand</TableHead>
               <TableHead className="text-right">Free to use</TableHead>
+              <TableHead className="hidden text-right xl:table-cell">Forecast</TableHead>
               <TableHead className="hidden text-right lg:table-cell">Value</TableHead>
               <TableHead className="hidden text-right sm:table-cell">Status</TableHead>
               {canMove && <TableHead className="w-28 text-right">Update</TableHead>}
@@ -166,6 +170,16 @@ export function StockView() {
                       <TableCell className="text-right tabular">
                         {formatQty(row.free)}
                         {row.reserved > 0 && <p className="text-xs text-muted-foreground">{formatQty(row.reserved)} reserved</p>}
+                      </TableCell>
+                      <TableCell className="hidden text-right tabular xl:table-cell">
+                        {formatQty(row.forecast)}
+                        {(row.incoming > 0 || row.outgoing > 0) && (
+                          <p className="text-xs text-muted-foreground">
+                            {row.incoming > 0 && <span className="text-emerald-600 dark:text-emerald-400">+{formatQty(row.incoming)}</span>}
+                            {row.incoming > 0 && row.outgoing > 0 && " · "}
+                            {row.outgoing > 0 && <span className="text-destructive">−{formatQty(row.outgoing)}</span>}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="hidden text-right tabular lg:table-cell">{formatCurrency(row.value)}</TableCell>
                       <TableCell className="hidden text-right sm:table-cell">
@@ -230,6 +244,7 @@ export function StockView() {
                 <TableCell colSpan={5} className="text-sm text-muted-foreground">
                   {data.length} products
                 </TableCell>
+                <TableCell className="hidden xl:table-cell" />
                 <TableCell className="hidden text-right tabular font-semibold lg:table-cell">{formatCurrency(totalValue)}</TableCell>
                 <TableCell colSpan={2} className="hidden sm:table-cell" />
               </TableRow>

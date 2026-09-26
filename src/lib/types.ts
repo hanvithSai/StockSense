@@ -98,6 +98,12 @@ export interface ProductRowDTO {
   onHand: number;
   reserved: number;
   free: number;
+  /** Quantity on open receipts. */
+  incoming: number;
+  /** Quantity on open deliveries. */
+  outgoing: number;
+  /** On hand + incoming - outgoing. */
+  forecast: number;
   value: number;
   status: StockStatus;
   minQty: number | null;
@@ -120,6 +126,8 @@ export interface ReorderRuleDTO {
   minQty: number;
   maxQty: number;
   onHand: number;
+  /** On hand + open receipts - open deliveries in the warehouse. */
+  forecast: number;
   status: StockStatus;
   suggestedQty: number;
 }
