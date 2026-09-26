@@ -167,7 +167,15 @@ export function LandingPage({ signedIn, stats, demo }: LandingPageProps) {
                   width={2160}
                   height={1350}
                   priority
-                  className="h-auto w-full"
+                  className="h-auto w-full dark:hidden"
+                  sizes="(min-width: 1024px) 1024px, 100vw"
+                />
+                <Image
+                  src="/screens/dashboard-dark.jpg"
+                  alt="StockSense dashboard in dark mode"
+                  width={2160}
+                  height={1350}
+                  className="hidden h-auto w-full dark:block"
                   sizes="(min-width: 1024px) 1024px, 100vw"
                 />
               </div>

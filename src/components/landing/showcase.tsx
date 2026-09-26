@@ -50,7 +50,16 @@ export function Showcase() {
           alt={`${screen.label} screen`}
           width={2160}
           height={1350}
-          className="animate-in fade-in h-auto w-full duration-500"
+          className="animate-in fade-in h-auto w-full duration-500 dark:hidden"
+          sizes="(min-width: 1280px) 1152px, 100vw"
+        />
+        <Image
+          key={`${screen.key}-dark`}
+          src={`/screens/${screen.key}-dark.jpg`}
+          alt={`${screen.label} screen in dark mode`}
+          width={2160}
+          height={1350}
+          className="animate-in fade-in hidden h-auto w-full duration-500 dark:block"
           sizes="(min-width: 1280px) 1152px, 100vw"
         />
       </div>
