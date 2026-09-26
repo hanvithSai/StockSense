@@ -47,8 +47,11 @@ function ProductForm({ product, onDone }: { product: ProductRowDTO | null; onDon
   const save = useApiMutation<ProductCreateInput, { id: string } | ProductRowDTO>({
     mutationFn: (values) => {
       if (product) {
-        const { initialQuantity: _quantity, initialLocation: _location, ...fields } = values;
-        return api(`/api/products/${product.id}`, { method: "PATCH", body: fields });
+        const { name, sku, category, uom, costPrice, description } = values;
+        return api(`/api/products/${product.id}`, {
+          method: "PATCH",
+          body: { name, sku, category, uom, costPrice, description },
+        });
       }
       return api("/api/products", { method: "POST", body: values });
     },
