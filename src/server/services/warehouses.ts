@@ -31,28 +31,62 @@ const locationLog = (id: Types.ObjectId, label: string, action: string, message:
 
 /* -------------------------------------------------------------- warehouses */
 
-function toWarehouseDTO(warehouse: WarehouseRecord & { createdAt?: Date }, locationCount: number): WarehouseDTO {
+interface WarehouseStats {
+  locationCount: number;
+  productCount: number;
+  stockValue: number;
+  openOperations: number;
+}
+
+function toWarehouseDTO(warehouse: WarehouseRecord & { createdAt?: Date }, stats: WarehouseStats): WarehouseDTO {
   return {
     id: warehouse._id.toString(),
     name: warehouse.name,
     shortCode: warehouse.shortCode,
     address: warehouse.address ?? "",
     defaultLocationId: warehouse.defaultLocation?.toString() ?? null,
-    locationCount,
+    ...stats,
     createdAt: (warehouse.createdAt ?? new Date()).toISOString(),
   };
 }
 
 export async function listWarehouses(): Promise<WarehouseDTO[]> {
-  const [warehouses, counts] = await Promise.all([
+  const [warehouses, locations, stock, open] = await Promise.all([
     Warehouse.find().sort({ name: 1 }).lean<(WarehouseRecord & { createdAt: Date })[]>(),
     Location.aggregate<{ _id: Types.ObjectId; count: number }>([
       { $match: { type: "internal" } },
       { $group: { _id: "$warehouse", count: { $sum: 1 } } },
     ]),
+    StockQuant.aggregate<{ _id: Types.ObjectId; value: number; products: number }>([
+      { $match: { quantity: { $gt: 0 } } },
+      { $lookup: { from: "products", localField: "product", foreignField: "_id", as: "product" } },
+      { $unwind: "$product" },
+      {
+        $group: {
+          _id: "$warehouse",
+          value: { $sum: { $multiply: ["$quantity", "$product.costPrice"] } },
+          products: { $addToSet: "$product._id" },
+        },
+      },
+      { $project: { value: 1, products: { $size: "$products" } } },
+    ]),
+    Operation.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { status: { $in: ["draft", "waiting", "ready"] } } },
+      { $group: { _id: "$warehouse", count: { $sum: 1 } } },
+    ]),
   ]);
-  const byWarehouse = new Map(counts.map((row) => [row._id?.toString(), row.count]));
-  return warehouses.map((warehouse) => toWarehouseDTO(warehouse, byWarehouse.get(warehouse._id.toString()) ?? 0));
+  const locationCounts = new Map(locations.map((row) => [row._id?.toString(), row.count]));
+  const stockStats = new Map(stock.map((row) => [row._id.toString(), row]));
+  const openCounts = new Map(open.map((row) => [row._id.toString(), row.count]));
+  return warehouses.map((warehouse) => {
+    const id = warehouse._id.toString();
+    return toWarehouseDTO(warehouse, {
+      locationCount: locationCounts.get(id) ?? 0,
+      productCount: stockStats.get(id)?.products ?? 0,
+      stockValue: Math.round((stockStats.get(id)?.value ?? 0) * 100) / 100,
+      openOperations: openCounts.get(id) ?? 0,
+    });
+  });
 }
 
 /** Creates a warehouse together with its main `<CODE>/Stock` location. */

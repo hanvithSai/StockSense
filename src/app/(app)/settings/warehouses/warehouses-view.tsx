@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 import { useWarehouses } from "@/hooks/use-reference-data";
 import { api } from "@/lib/api-client";
+import { formatCompact } from "@/lib/format";
 import type { WarehouseDTO } from "@/lib/types";
 import { warehouseSchema, type WarehouseInput } from "@/lib/validation/master";
 
@@ -151,8 +152,22 @@ export function WarehousesView() {
                   </DropdownMenu>
                 )}
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardContent className="space-y-4 text-sm">
                 <p className="min-h-10 text-muted-foreground">{warehouse.address || "No address"}</p>
+                <dl className="grid grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3 text-center">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Stock value</dt>
+                    <dd className="font-semibold tabular">₹{formatCompact(warehouse.stockValue)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Products</dt>
+                    <dd className="font-semibold tabular">{warehouse.productCount}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Open ops</dt>
+                    <dd className="font-semibold tabular">{warehouse.openOperations}</dd>
+                  </div>
+                </dl>
                 <Link
                   href={`/settings/locations?warehouse=${warehouse.id}`}
                   className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"

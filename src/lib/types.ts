@@ -53,6 +53,9 @@ export interface WarehouseDTO extends WarehouseRef {
   address: string;
   defaultLocationId: string | null;
   locationCount: number;
+  productCount: number;
+  stockValue: number;
+  openOperations: number;
   createdAt: string;
 }
 
