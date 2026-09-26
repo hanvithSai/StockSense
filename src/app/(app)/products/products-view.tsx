@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Package, Plus } from "lucide-react";
+import { Package, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { EmptyState } from "@/components/common/empty-state";
@@ -12,6 +12,7 @@ import { SearchInput } from "@/components/common/search-input";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
+import { ImportProductsDialog } from "@/components/products/import-products-dialog";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,6 +39,7 @@ export function ProductsView() {
   const [archived, setArchived] = useState("");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: categories = [] } = useCategories();
   const { data: warehouses = [] } = useWarehouses();
@@ -61,9 +63,14 @@ export function ProductsView() {
         description="Catalog with live stock per warehouse, SKU search and smart filters."
         actions={
           can("master:write") && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus /> New product
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                <Upload /> Import CSV
+              </Button>
+              <Button onClick={() => setCreating(true)}>
+                <Plus /> New product
+              </Button>
+            </>
           )
         }
       />
@@ -141,6 +148,7 @@ export function ProductsView() {
       </Card>
 
       <ProductFormDialog open={creating} onOpenChange={setCreating} product={null} />
+      <ImportProductsDialog open={importing} onOpenChange={setImporting} />
     </>
   );
 }

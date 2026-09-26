@@ -2,15 +2,18 @@ import { isValidObjectId, type Types } from "mongoose";
 import type { StockStatus } from "@/lib/constants";
 import { round3 } from "@/lib/format";
 import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
-import type {
-  CategoryInput,
-  ProductCreateInput,
-  ProductInput,
-  ReorderRuleInput,
+import {
+  normalizeUom,
+  productImportRowSchema,
+  type CategoryInput,
+  type ProductCreateInput,
+  type ProductInput,
+  type ReorderRuleInput,
 } from "@/lib/validation/master";
 import { withTransaction } from "@/server/db";
-import { conflict, notFound, validationError } from "@/server/errors";
+import { AppError, conflict, notFound, validationError } from "@/server/errors";
 import { Category, type CategoryRecord } from "@/server/models/category";
+import { Location, type LocationRecord } from "@/server/models/location";
 import { Operation } from "@/server/models/operation";
 import { Product } from "@/server/models/product";
 import { ReorderRule } from "@/server/models/reorder-rule";
@@ -162,6 +165,105 @@ export async function setProductActive(id: string, isActive: boolean, actor: Aud
     actor,
     productLog(product._id, product.name, isActive ? "restored" : "archived", isActive ? "Restored product" : "Archived product"),
   );
+}
+
+/* ------------------------------------------------------------ CSV import */
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; sku: string; message: string }[];
+}
+
+/**
+ * Imports spreadsheet rows one by one, so a bad row never blocks the good ones.
+ * Categories are matched by name (optionally created); initial stock is booked as an adjustment.
+ */
+export async function importProducts(
+  input: { rows: Record<string, unknown>[]; updateExisting: boolean; createCategories: boolean },
+  actor: Actor,
+): Promise<ImportResult> {
+  const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] };
+  const [categories, locations, firstWarehouse] = await Promise.all([
+    Category.find().lean<CategoryRecord[]>(),
+    Location.find({ type: "internal" }).lean<LocationRecord[]>(),
+    Warehouse.findOne().sort({ createdAt: 1 }).lean<{ defaultLocation: Types.ObjectId | null }>(),
+  ]);
+  const categoryByName = new Map(categories.map((category) => [category.name.toLowerCase(), category._id.toString()]));
+  const locationByName = new Map(locations.map((location) => [location.fullName.toLowerCase(), location._id.toString()]));
+  const defaultLocation = firstWarehouse?.defaultLocation?.toString();
+  const seen = new Set<string>();
+
+  for (const [index, raw] of input.rows.entries()) {
+    const rowNumber = index + 2; // row 1 is the header
+    const sku = String(raw.sku ?? "").trim().toUpperCase();
+    const parsed = productImportRowSchema.safeParse(raw);
+    if (!parsed.success) {
+      result.errors.push({ row: rowNumber, sku, message: parsed.error.issues[0].message });
+      continue;
+    }
+    const row = parsed.data;
+    if (seen.has(row.sku)) {
+      result.errors.push({ row: rowNumber, sku: row.sku, message: "Duplicate SKU in the file" });
+      continue;
+    }
+    seen.add(row.sku);
+
+    try {
+      let categoryId = categoryByName.get(row.category.toLowerCase());
+      if (!categoryId) {
+        if (!input.createCategories) {
+          result.errors.push({ row: rowNumber, sku: row.sku, message: `Unknown category "${row.category}"` });
+          continue;
+        }
+        categoryId = await createCategory({ name: row.category, description: "Created by CSV import" }, actor);
+        categoryByName.set(row.category.toLowerCase(), categoryId);
+      }
+      const fields: ProductInput = {
+        name: row.name,
+        sku: row.sku,
+        category: categoryId,
+        uom: normalizeUom(row.uom)!,
+        costPrice: row.costPrice,
+        description: row.description,
+      };
+
+      const existing = await Product.findOne({ sku: row.sku }).select("_id").lean<{ _id: Types.ObjectId }>();
+      if (existing) {
+        if (!input.updateExisting) {
+          result.skipped += 1;
+          continue;
+        }
+        await updateProduct(existing._id.toString(), fields, actor);
+        result.updated += 1;
+        continue;
+      }
+
+      let initialLocation: string | undefined;
+      if (row.initialQuantity && row.initialQuantity > 0) {
+        initialLocation = row.location ? locationByName.get(row.location.toLowerCase()) : defaultLocation;
+        if (!initialLocation) {
+          result.errors.push({ row: rowNumber, sku: row.sku, message: `Unknown location "${row.location}"` });
+          continue;
+        }
+      }
+      await createProduct({ ...fields, initialQuantity: row.initialQuantity, initialLocation }, actor);
+      result.created += 1;
+    } catch (error) {
+      const message = error instanceof AppError ? (Object.values(error.fields ?? {})[0] ?? error.message) : "Could not import this row";
+      result.errors.push({ row: rowNumber, sku: row.sku, message });
+    }
+  }
+
+  await recordActivity(actor, {
+    entityType: "product",
+    entityLabel: "CSV import",
+    action: "imported",
+    message: `Imported products from CSV: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} with errors`,
+    link: "/products",
+  });
+  return result;
 }
 
 /* ----------------------------------------------------------- reorder rules */
