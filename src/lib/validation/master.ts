@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { UNITS_OF_MEASURE, type UnitOfMeasure } from "@/lib/constants";
+import { wholeUnitError } from "@/lib/units";
 import { money, objectId, optionalObjectId, quantity, shortText } from "./common";
 
 export const warehouseSchema = z.object({
@@ -50,6 +51,10 @@ export const productCreateSchema = productSchema
   .refine((data) => !data.initialQuantity || Boolean(data.initialLocation), {
     error: "Select where the initial stock is stored",
     path: ["initialLocation"],
+  })
+  .superRefine((data, ctx) => {
+    const message = wholeUnitError(data.uom, data.initialQuantity ?? 0);
+    if (message) ctx.addIssue({ code: "custom", message, path: ["initialQuantity"] });
   });
 export type ProductCreateInput = z.infer<typeof productCreateSchema>;
 export type ProductInput = z.infer<typeof productSchema>;

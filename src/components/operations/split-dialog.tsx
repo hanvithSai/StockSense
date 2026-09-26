@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatQty, round3 } from "@/lib/format";
+import { wholeUnitError } from "@/lib/units";
 import type { AvailabilityDTO, OperationDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -56,10 +57,13 @@ function SplitForm({
     const inStock = Math.max(0, availability?.[line.productId]?.free ?? 0);
     const typed = Number(received[line.id]);
     const now = receiving ? typed : Math.min(line.quantity, inStock);
-    const invalid = receiving && (received[line.id] === "" || !Number.isFinite(typed) || typed < 0 || typed > line.quantity);
-    return { line, inStock, now, rest: invalid ? 0 : round3(line.quantity - now), invalid };
+    const outOfRange = receiving && (received[line.id] === "" || !Number.isFinite(typed) || typed < 0 || typed > line.quantity);
+    const unitError = receiving && !outOfRange ? wholeUnitError(line.uom, typed) : null;
+    const invalid = outOfRange || Boolean(unitError);
+    return { line, inStock, now, rest: invalid ? 0 : round3(line.quantity - now), invalid, unitError };
   });
   const anyInvalid = rows.some((row) => row.invalid);
+  const unitMessage = rows.find((row) => row.unitError);
   const nothingNow = rows.every((row) => !row.invalid && row.now === 0);
   const nothingLater = rows.every((row) => row.rest === 0);
 
@@ -135,7 +139,11 @@ function SplitForm({
           </TableBody>
         </Table>
       </div>
-      {anyInvalid && <p className="text-sm text-destructive">Received quantities must be between 0 and the ordered quantity.</p>}
+      {anyInvalid && (
+        <p className="text-sm text-destructive">
+          {unitMessage ? `${unitMessage.line.productName}: ${unitMessage.unitError}.` : "Received quantities must be between 0 and the ordered quantity."}
+        </p>
+      )}
       {!receiving && nothingNow && <p className="text-sm text-muted-foreground">Nothing is in stock yet at {operation.sourceLocation.fullName}.</p>}
       {!receiving && !nothingNow && nothingLater && (
         <p className="text-sm text-muted-foreground">Everything is in stock: use Check availability instead.</p>

@@ -13,6 +13,7 @@ import { useApiMutation } from "@/hooks/use-api-mutation";
 import { api } from "@/lib/api-client";
 import { operationPath } from "@/lib/constants";
 import { formatQty, round3 } from "@/lib/format";
+import { wholeUnitError } from "@/lib/units";
 import type { OperationDTO } from "@/lib/types";
 
 /** What can still come back on each delivered line. */
@@ -35,9 +36,12 @@ function ReturnForm({ operation, onDone }: { operation: OperationDTO; onDone: ()
 
   const parsed = rows.map(({ line, open }) => {
     const quantity = Number(values[line.id]);
-    return { line, open, quantity, invalid: values[line.id] === "" || !Number.isFinite(quantity) || quantity < 0 || quantity > open };
+    const outOfRange = values[line.id] === "" || !Number.isFinite(quantity) || quantity < 0 || quantity > open;
+    const unitError = outOfRange ? null : wholeUnitError(line.uom, quantity);
+    return { line, open, quantity, invalid: outOfRange || Boolean(unitError), unitError };
   });
   const anyInvalid = parsed.some((row) => row.invalid);
+  const unitMessage = parsed.find((row) => row.unitError);
   const nothing = parsed.every((row) => row.invalid || row.quantity === 0);
 
   function submit(event: React.FormEvent) {
@@ -91,7 +95,11 @@ function ReturnForm({ operation, onDone }: { operation: OperationDTO; onDone: ()
           </TableBody>
         </Table>
       </div>
-      {anyInvalid && <p className="text-sm text-destructive">Each quantity must be between 0 and what is left to return.</p>}
+      {anyInvalid && (
+        <p className="text-sm text-destructive">
+          {unitMessage ? `${unitMessage.line.productName}: ${unitMessage.unitError}.` : "Each quantity must be between 0 and what is left to return."}
+        </p>
+      )}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
           Back

@@ -3,6 +3,7 @@ import type { StockStatus } from "@/lib/constants";
 import { round3, todayISO } from "@/lib/format";
 import { sortProducts, type ProductSort } from "@/lib/product-sort";
 import { DEMAND_PERIOD_DAYS, suggestLevels } from "@/lib/reorder";
+import { wholeUnitError } from "@/lib/units";
 import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
 import {
   normalizeUom,
@@ -387,12 +388,16 @@ export async function replenishLowStock(actor: Actor): Promise<string[]> {
 /** Validates the rule's references and returns a readable label, e.g. "Desk · WH". */
 async function ruleLabel(input: ReorderRuleInput): Promise<string> {
   const [product, warehouse] = await Promise.all([
-    Product.findById(input.product).select("name").lean<{ name: string }>(),
+    Product.findById(input.product).select("name uom").lean<{ name: string; uom: string }>(),
     Warehouse.findById(input.warehouse).select("shortCode").lean<{ shortCode: string }>(),
   ]);
   const errors: Record<string, string> = {};
   if (!product) errors.product = "Select a valid product";
   if (!warehouse) errors.warehouse = "Select a valid warehouse";
+  for (const field of ["minQty", "maxQty"] as const) {
+    const unitError = product && wholeUnitError(product.uom, input[field]);
+    if (unitError) errors[field] = unitError;
+  }
   if (Object.keys(errors).length) throw validationError(errors);
   return `${product!.name} · ${warehouse!.shortCode}`;
 }

@@ -24,6 +24,7 @@ import { formatQty, round3 } from "@/lib/format";
 import type { AvailabilityDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { stockUpdateSchema, type StockUpdateInput } from "@/lib/validation/master";
+import { wholeUnitError } from "@/lib/units";
 
 export interface StockTarget {
   productId: string;
@@ -67,9 +68,11 @@ function UpdateStockForm({ target, onDone }: { target: StockTarget; onDone: () =
   return (
     <form
       noValidate
-      onSubmit={form.handleSubmit((values) =>
-        save.mutateAsync(values).catch((error) => applyServerErrors(error, form.setError)),
-      )}
+      onSubmit={form.handleSubmit((values) => {
+        const unitError = wholeUnitError(target.uom, values.countedQty);
+        if (unitError) return form.setError("countedQty", { message: unitError });
+        return save.mutateAsync(values).catch((error) => applyServerErrors(error, form.setError));
+      })}
     >
       <FieldGroup className="gap-4">
         <Controller

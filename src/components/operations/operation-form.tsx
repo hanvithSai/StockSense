@@ -55,6 +55,7 @@ import { OPERATION_META, operationPath, STATUS_LABELS, type OperationType } from
 import { formatDateTime, formatQty, round3, todayISO } from "@/lib/format";
 import { manageCapability } from "@/lib/permissions";
 import type { AvailabilityDTO, OperationActionResult, OperationDTO } from "@/lib/types";
+import { wholeUnitError } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import {
   operationFieldsSchema,
@@ -123,12 +124,16 @@ function initialValues(
   };
 }
 
-/** zod shape validation plus the shared type-specific business rules. */
-function operationResolver(type: OperationType): Resolver<OperationFields> {
+/** zod shape validation plus the shared type-specific business rules and whole numbers for counted units. */
+function operationResolver(type: OperationType, uomOf: (productId: string) => string | undefined): Resolver<OperationFields> {
   const base = zodResolver(operationFieldsSchema) as unknown as Resolver<OperationFields>;
   return async (values, context, options) => {
     const result = await base(values, context, options);
     const rules = operationRules(type, values);
+    (values.lines ?? []).forEach((line, index) => {
+      const message = wholeUnitError(uomOf(line.product), Number(line.quantity));
+      if (message && !rules[`lines.${index}.quantity`]) rules[`lines.${index}.quantity`] = message;
+    });
     if (!Object.keys(rules).length) return result;
     const flat = Object.fromEntries(Object.entries(rules).map(([path, message]) => [path, { type: "custom", message }]));
     // Show shape errors and business-rule errors together; shape errors win on the same field.
@@ -182,7 +187,10 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
     enabled: type === "receipt" || type === "delivery",
   });
 
-  const resolver = useMemo(() => operationResolver(type), [type]);
+  const resolver = useMemo(
+    () => operationResolver(type, (productId) => products.find((product) => product.id === productId)?.uom),
+    [type, products],
+  );
   const form = useForm<OperationFields>({
     resolver,
     defaultValues: initialValues(type, operation, template, prefill, primaryLocationId(warehouses, locations), user.id),

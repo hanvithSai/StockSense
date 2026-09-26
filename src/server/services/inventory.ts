@@ -1,5 +1,6 @@
-import type { ClientSession, Types } from "mongoose";
+import { isValidObjectId, type ClientSession, type Types } from "mongoose";
 import { planSplit } from "@/lib/backorder";
+import { wholeUnitError } from "@/lib/units";
 import { OPERATION_META, operationPath, type OperationStatus, type OperationType } from "@/lib/constants";
 import { formatQty, round3, todayISO } from "@/lib/format";
 import type { SessionUser } from "@/lib/types";
@@ -216,6 +217,8 @@ async function resolveLines(data: OperationFields, session: ClientSession) {
     const product = byId.get(line.product);
     if (!product) errors[`lines.${index}.product`] = "Product not found";
     else if (!product.isActive) errors[`lines.${index}.product`] = `${product.name} is archived`;
+    const unitError = product && wholeUnitError(product.uom, line.quantity);
+    if (unitError) errors[`lines.${index}.quantity`] = unitError;
   });
   if (Object.keys(errors).length) throw validationError(errors);
 
@@ -639,6 +642,8 @@ async function splitOperation(
   }));
   const plan = planSplit(limits, wanted).map((item, index) => {
     const line = op.lines[index];
+    const unitError = wholeUnitError(line.uom, item.keep);
+    if (unitError) throw conflict(`${line.productName}: ${unitError.charAt(0).toLowerCase()}${unitError.slice(1)}`);
     if (item.overLimit) {
       const limit = Math.max(0, Math.min(line.quantity, limits[index].limit));
       throw conflict(`${line.productName}: at most ${formatQty(limit)} ${line.uom} ${free ? "are in stock" : "were ordered"}`);
@@ -746,6 +751,8 @@ export async function createReturn(
     const lines = delivery.lines.flatMap((line) => {
       const quantity = wanted.get(line._id.toString()) ?? 0;
       if (quantity <= 0) return [];
+      const unitError = wholeUnitError(line.uom, quantity);
+      if (unitError) throw conflict(`${line.productName}: ${unitError.charAt(0).toLowerCase()}${unitError.slice(1)}`);
       const open = openByProduct.get(line.product.toString()) ?? 0;
       if (quantity > open) {
         throw conflict(`${line.productName}: only ${formatQty(Math.max(0, open))} ${line.uom} can still be returned`);
@@ -856,6 +863,9 @@ export async function applyStockCount(
   input: { product: string; location: string; countedQty: number; note: string },
   actor: Actor,
 ) {
+  const product = isValidObjectId(input.product) ? await Product.findById(input.product).select("uom").lean<{ uom: string }>() : null;
+  const unitError = product && wholeUnitError(product.uom, input.countedQty);
+  if (unitError) throw validationError({ countedQty: unitError });
   return withTransaction((session) =>
     createAppliedAdjustment(session, {
       location: input.location,
