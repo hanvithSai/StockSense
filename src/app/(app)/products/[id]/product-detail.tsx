@@ -11,6 +11,7 @@ import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
 import { ProductAvatar } from "@/components/products/product-avatar";
+import { StockLevelChart } from "@/components/products/stock-level-chart";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { UpdateStockDialog, type StockTarget } from "@/components/stock/update-stock-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +118,10 @@ export function ProductDetail({ id }: { id: string }) {
             <Metric label="Free to use" value={formatQty(data.free)} hint="On hand minus reserved" />
             <Metric label="Stock value" value={formatCurrency(data.value)} hint={`${formatCurrency(data.costPrice)} per unit`} />
           </div>
+
+          {ledger.data && ledger.data.length > 1 && (
+            <StockLevelChart rows={ledger.data} uom={data.uom} minQty={data.minQty} />
+          )}
 
           <div className="grid gap-6 lg:grid-cols-5">
             <Card className="gap-0 pb-0 lg:col-span-3">
