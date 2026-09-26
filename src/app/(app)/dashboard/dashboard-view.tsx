@@ -42,6 +42,13 @@ import { formatCompact, formatDate, formatRelative, todayISO } from "@/lib/forma
 import type { DashboardDTO, OperationListDTO, OperationTypeStats } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+const DOC_TYPE_TABS: Record<OperationType, string> = {
+  receipt: "Receipts",
+  delivery: "Delivery",
+  internal: "Internal",
+  adjustment: "Adjustments",
+};
+
 interface KpiProps {
   label: string;
   value: React.ReactNode;
@@ -59,7 +66,7 @@ function Kpi({ label, value, hint, icon: Icon, tone, href }: KpiProps) {
           <div className="min-w-0 space-y-1">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <p className="text-3xl font-semibold tracking-tight tabular">{value}</p>
-            <p className="truncate text-xs text-muted-foreground">{hint}</p>
+            <p className="line-clamp-2 text-xs text-muted-foreground">{hint}</p>
           </div>
           <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", tone)}>
             <Icon className="size-5" />
@@ -196,7 +203,7 @@ export function DashboardView() {
           <Kpi
             label="Products in stock"
             value={kpis.productsInStock}
-            hint={`of ${kpis.totalProducts} products · ₹${formatCompact(kpis.stockValue)} value`}
+            hint={`of ${kpis.totalProducts} · ₹${formatCompact(kpis.stockValue)} value`}
             icon={Boxes}
             tone="bg-primary/10 text-primary"
             href="/stock"
@@ -210,7 +217,7 @@ export function DashboardView() {
                 <span className="text-destructive">{kpis.outOfStock}</span>
               </>
             }
-            hint="Below reorder level / empty"
+            hint="At reorder minimum / empty"
             icon={PackageX}
             tone="bg-destructive/10 text-destructive"
             href="/products/reordering"
@@ -269,7 +276,7 @@ export function DashboardView() {
                 <TabsTrigger value="all">All</TabsTrigger>
                 {OPERATION_TYPES.map((type) => (
                   <TabsTrigger key={type} value={type}>
-                    {type === "delivery" ? "Delivery" : type === "internal" ? "Internal" : OPERATION_META[type].plural.split(" ")[0]}
+                    {DOC_TYPE_TABS[type]}
                   </TabsTrigger>
                 ))}
               </TabsList>

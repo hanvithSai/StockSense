@@ -4,7 +4,7 @@ import { ChevronsUpDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Logo, LogoMark } from "@/components/brand/logo";
+import { LogoMark } from "@/components/brand/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -106,16 +106,16 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
-              <Link href="/dashboard" aria-label="StockSense dashboard">
-                <LogoMark className="size-8 group-data-[collapsible=icon]:size-8" />
-                <Logo className="[&>svg]:hidden" />
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <Link
+          href="/dashboard"
+          aria-label="StockSense dashboard"
+          className="flex h-12 items-center gap-2.5 rounded-lg px-1 group-data-[collapsible=icon]:px-0"
+        >
+          <LogoMark />
+          <span className="text-lg font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+            Stock<span className="text-primary">Sense</span>
+          </span>
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         {NAV_GROUPS.map((group) => {

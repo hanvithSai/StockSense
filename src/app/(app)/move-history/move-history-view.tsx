@@ -148,7 +148,7 @@ export function MoveHistoryView() {
                 <TableRow>
                   <TableHead>Reference</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="hidden lg:table-cell">Contact</TableHead>
+                  <TableHead className="hidden xl:table-cell">Contact</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead className="hidden md:table-cell">From</TableHead>
                   <TableHead className="hidden md:table-cell">To</TableHead>
@@ -174,13 +174,13 @@ export function MoveHistoryView() {
                     >
                       <TableCell className="font-mono text-sm font-semibold">{move.reference}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{formatDate(move.date)}</TableCell>
-                      <TableCell className="hidden max-w-40 truncate lg:table-cell">{move.contact || "—"}</TableCell>
+                      <TableCell className="hidden max-w-40 truncate xl:table-cell">{move.contact || "—"}</TableCell>
                       <TableCell className="max-w-48">
                         <p className="truncate font-medium">{move.productName}</p>
                         <p className="font-mono text-xs text-muted-foreground">{move.sku}</p>
                       </TableCell>
-                      <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">{move.from}</TableCell>
-                      <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">{move.to}</TableCell>
+                      <TableCell className="hidden max-w-44 truncate font-mono text-xs text-muted-foreground md:table-cell">{move.from}</TableCell>
+                      <TableCell className="hidden max-w-44 truncate font-mono text-xs text-muted-foreground md:table-cell">{move.to}</TableCell>
                       <TableCell className="text-right">
                         <MoveQuantity direction={move.direction} quantity={move.quantity} uom={move.uom} />
                       </TableCell>

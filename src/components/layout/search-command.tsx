@@ -61,12 +61,12 @@ export function SearchCommand() {
     <>
       <Button
         variant="outline"
-        className="h-9 w-9 justify-start gap-2 px-0 text-muted-foreground sm:w-64 sm:px-3"
+        className="mr-1 h-9 w-9 justify-start gap-2 px-0 text-muted-foreground sm:w-72 sm:px-3"
         onClick={() => setOpen(true)}
         aria-label="Search"
       >
         <Search className="mx-auto sm:mx-0" />
-        <span className="hidden flex-1 text-left font-normal sm:inline">Search SKU, product, reference…</span>
+        <span className="hidden flex-1 truncate text-left font-normal sm:inline">Search SKU or reference…</span>
         <Kbd className="hidden sm:inline-flex">Ctrl K</Kbd>
       </Button>
       <CommandDialog
