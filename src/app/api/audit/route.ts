@@ -1,8 +1,16 @@
+import { z } from "zod";
 import { AUDIT_ENTITIES, type AuditEntity } from "@/lib/constants";
 import { can } from "@/lib/permissions";
+import { objectId } from "@/lib/validation/common";
 import { forbidden } from "@/server/errors";
-import { pageParams, route, searchParam } from "@/server/http";
-import { getEntityActivity, listActivity } from "@/server/services/audit";
+import { pageParams, parseBody, route, searchParam } from "@/server/http";
+import { getEntityActivity, listActivity, logNote } from "@/server/services/audit";
+
+const noteSchema = z.object({
+  entityType: z.enum(["operation", "product"], { error: "Notes can be added to operations and products" }),
+  entityId: objectId("Invalid record"),
+  message: z.string().trim().min(1, "Write a note first").max(1000, "Notes are limited to 1000 characters"),
+});
 
 /**
  * `?entityType=operation&entityId=…` returns the timeline of one record (any role).
@@ -19,4 +27,10 @@ export const GET = route({}, async ({ req, user }) => {
     { entityType, user: searchParam(req, "user"), q: searchParam(req, "q") },
     pageParams(req, 30),
   );
+});
+
+/** Log a note on a record's timeline (any signed-in user). */
+export const POST = route({}, async ({ req, user }) => {
+  await logNote(user, await parseBody(req, noteSchema));
+  return { ok: true };
 });

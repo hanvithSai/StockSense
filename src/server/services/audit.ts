@@ -1,8 +1,11 @@
 import { Types, isValidObjectId, type ClientSession } from "mongoose";
-import { AUDIT_ENTITIES, type AuditEntity } from "@/lib/constants";
+import { AUDIT_ENTITIES, operationPath, type AuditEntity, type OperationType } from "@/lib/constants";
 import { escapeRegex, formatQty } from "@/lib/format";
 import type { AuditLogDTO, Paginated, SessionUser } from "@/lib/types";
+import { notFound } from "@/server/errors";
 import { AuditLog, type AuditLogRecord } from "@/server/models/audit-log";
+import { Operation } from "@/server/models/operation";
+import { Product } from "@/server/models/product";
 
 export type AuditActor = Pick<SessionUser, "id" | "name"> | null;
 
@@ -54,6 +57,19 @@ function toDTO(log: AuditLogRecord): AuditLogDTO {
     userName: log.userName,
     createdAt: log.createdAt.toISOString(),
   };
+}
+
+/** Adds a free-text note to a record's timeline (chatter-style "log note"). */
+export async function logNote(actor: AuditActor, input: { entityType: "operation" | "product"; entityId: string; message: string }) {
+  if (!isValidObjectId(input.entityId)) throw notFound("Record");
+  const record =
+    input.entityType === "operation"
+      ? await Operation.findById(input.entityId).select("reference type").lean<{ reference: string; type: OperationType }>()
+      : await Product.findById(input.entityId).select("name").lean<{ name: string }>();
+  if (!record) throw notFound(input.entityType === "operation" ? "Operation" : "Product");
+  const label = "reference" in record ? record.reference : record.name;
+  const link = "reference" in record ? operationPath(record.type, input.entityId) : `/products/${input.entityId}`;
+  await recordActivity(actor, { entityType: input.entityType, entityId: input.entityId, entityLabel: label, action: "note", message: input.message, link });
 }
 
 export async function getEntityActivity(entityType: AuditEntity, entityId: string, limit = 50): Promise<AuditLogDTO[]> {
