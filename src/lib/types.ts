@@ -136,6 +136,8 @@ export interface ReorderRuleDTO {
   forecast: number;
   status: StockStatus;
   suggestedQty: number;
+  /** Levels derived from the last 30 days of deliveries (null without deliveries). */
+  demand: { perDay: number; minQty: number; maxQty: number } | null;
 }
 
 export interface OperationLineDTO {

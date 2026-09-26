@@ -2,6 +2,7 @@ import { isValidObjectId, type Types } from "mongoose";
 import type { StockStatus } from "@/lib/constants";
 import { round3, todayISO } from "@/lib/format";
 import { sortProducts, type ProductSort } from "@/lib/product-sort";
+import { DEMAND_PERIOD_DAYS, suggestLevels } from "@/lib/reorder";
 import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
 import {
   normalizeUom,
@@ -289,14 +290,21 @@ export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
     .populate("warehouse", "name shortCode")
     .lean<RuleWithRefs[]>();
   const productIds = rules.flatMap((rule) => (rule.product ? [rule.product._id] : []));
-  const [totals, pending] = await Promise.all([
+  const since = new Date(Date.now() - DEMAND_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const [totals, pending, shipped] = await Promise.all([
     StockQuant.aggregate<{ _id: { product: Types.ObjectId; warehouse: Types.ObjectId }; onHand: number }>([
       { $group: { _id: { product: "$product", warehouse: "$warehouse" }, onHand: { $sum: "$quantity" } } },
     ]),
     getPendingMoves(productIds),
+    Operation.aggregate<{ _id: { product: Types.ObjectId; warehouse: Types.ObjectId }; quantity: number }>([
+      { $match: { type: "delivery", status: "done", doneAt: { $gte: since }, "lines.product": { $in: productIds } } },
+      { $unwind: "$lines" },
+      { $group: { _id: { product: "$lines.product", warehouse: "$warehouse" }, quantity: { $sum: "$lines.quantity" } } },
+    ]),
   ]);
   const key = (product: Types.ObjectId, warehouse: Types.ObjectId) => `${product.toString()}:${warehouse.toString()}`;
   const onHandMap = new Map(totals.map((row) => [key(row._id.product, row._id.warehouse), round3(row.onHand)]));
+  const shippedMap = new Map(shipped.map((row) => [key(row._id.product, row._id.warehouse), row.quantity]));
   const netPending = new Map<string, number>();
   for (const move of pending) {
     const id = key(move.product, move.warehouse);
@@ -325,6 +333,7 @@ export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
         forecast,
         status,
         suggestedQty: forecast <= rule.minQty ? Math.max(0, round3(rule.maxQty - forecast)) : 0,
+        demand: suggestLevels(shippedMap.get(key(product._id, warehouse._id)) ?? 0),
       };
     })
     .sort((a, b) => a.product.name.localeCompare(b.product.name));

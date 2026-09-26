@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { ArrowDownToLine, Pencil, Plus, RefreshCcw, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -142,6 +142,14 @@ export function ReorderingView() {
       result.references.length ? `Draft receipts created: ${result.references.join(", ")}` : "Nothing to replenish",
   });
   const dueCount = data?.filter((rule) => rule.suggestedQty > 0).length ?? 0;
+  const applyDemand = useApiMutation<ReorderRuleDTO>({
+    mutationFn: (rule) =>
+      api(`/api/reorder-rules/${rule.id}`, {
+        method: "PATCH",
+        body: { product: rule.product.id, warehouse: rule.warehouse.id, minQty: rule.demand!.minQty, maxQty: rule.demand!.maxQty },
+      }),
+    success: "Rule updated from recent demand",
+  });
 
   function replenishHref(rule: ReorderRuleDTO) {
     const location = warehouses.find((warehouse) => warehouse.id === rule.warehouse.id)?.defaultLocationId;
@@ -152,7 +160,7 @@ export function ReorderingView() {
     <>
       <PageHeader
         title="Reordering rules"
-        description="Minimum and maximum stock per warehouse. Alerts use stock on hand; order suggestions use the forecast (on hand + incoming − outgoing)."
+        description="Min / max stock per warehouse. Alerts use on hand, orders use the forecast, and demand-based levels cover 1 to 3 weeks of recent deliveries."
         actions={
           <>
             {canPlan && dueCount > 0 && (
@@ -187,16 +195,17 @@ export function ReorderingView() {
               <TableHead className="text-right">On hand</TableHead>
               <TableHead className="hidden text-right md:table-cell">Forecast</TableHead>
               <TableHead className="hidden text-right sm:table-cell">To order</TableHead>
+              <TableHead className="hidden text-right lg:table-cell">From demand</TableHead>
               <TableHead className="text-right">Status</TableHead>
               <TableHead className="w-32 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableSkeleton columns={9} />
+              <TableSkeleton columns={10} />
             ) : !data?.length ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={9}>
+                <TableCell colSpan={10}>
                   <EmptyState icon={RefreshCcw} title="No reordering rules" description="Add a rule to get low stock alerts." />
                 </TableCell>
               </TableRow>
@@ -218,6 +227,37 @@ export function ReorderingView() {
                   <TableCell className="hidden text-right tabular md:table-cell">{formatQty(rule.forecast)}</TableCell>
                   <TableCell className="hidden text-right tabular sm:table-cell">
                     {rule.suggestedQty > 0 ? formatQty(rule.suggestedQty) : "—"}
+                  </TableCell>
+                  <TableCell className="hidden text-right lg:table-cell">
+                    {rule.demand ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-sm tabular" title={`${formatQty(rule.demand.perDay)} ${rule.product.uom} shipped per day`}>
+                          {formatQty(rule.demand.minQty)} – {formatQty(rule.demand.maxQty)}
+                        </span>
+                        {canWrite && (rule.demand.minQty !== rule.minQty || rule.demand.maxQty !== rule.maxQty) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => applyDemand.mutate(rule)}
+                                disabled={applyDemand.isPending}
+                                aria-label={`Use demand-based levels for ${rule.product.name}`}
+                              >
+                                <Sparkles />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Set min {formatQty(rule.demand.minQty)} and max {formatQty(rule.demand.maxQty)} ({formatQty(rule.demand.perDay)} {rule.product.uom}/day)
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground" title="No deliveries in the last 30 days">
+                        —
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <StockBadge status={rule.status} />
