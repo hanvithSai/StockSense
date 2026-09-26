@@ -29,6 +29,9 @@ export interface OperationFilters {
   today: string;
   /** `schedule` lists the most urgent first; the default is newest first. */
   sort?: "recent" | "schedule";
+  /** Scheduled date range (`YYYY-MM-DD`, inclusive), used by the calendar view. */
+  scheduledFrom?: string;
+  scheduledTo?: string;
 }
 
 const toId = (value?: string) => (value && isValidObjectId(value) ? new Types.ObjectId(value) : undefined);
@@ -68,12 +71,17 @@ export function buildOperationMatch(
     and.push({ $or: [{ reference: rx }, { contact: rx }, { "lines.productName": rx }, { "lines.sku": rx }] });
   }
 
+  const scheduled: Record<string, string> = {};
+  if (filters.scheduledFrom) scheduled.$gte = filters.scheduledFrom;
+  if (filters.scheduledTo) scheduled.$lte = filters.scheduledTo;
+
   let statuses = includeStatus && filters.status?.length ? filters.status : undefined;
   if (filters.late) {
     statuses = (statuses ?? [...OPEN_STATUSES]).filter((status) => OPEN_STATUSES.includes(status));
-    match.scheduledDate = { $lt: filters.today };
+    scheduled.$lt = filters.today;
   }
   if (statuses) match.status = { $in: statuses };
+  if (Object.keys(scheduled).length) match.scheduledDate = scheduled;
 
   if (and.length) match.$and = and;
   return match as FilterQuery<OperationSchema>;

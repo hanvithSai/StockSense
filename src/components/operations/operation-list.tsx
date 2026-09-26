@@ -15,6 +15,7 @@ import { TableSkeleton } from "@/components/common/table-skeleton";
 import { ViewToggle, type ViewMode } from "@/components/common/view-toggle";
 import { useSession } from "@/components/layout/session-context";
 import { BulkActions, isBulkSelectable } from "@/components/operations/bulk-actions";
+import { OperationCalendar } from "@/components/operations/operation-calendar";
 import { OperationKanban } from "@/components/operations/operation-kanban";
 import { CountLocationDialog } from "@/components/stock/count-location-dialog";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,8 @@ export function OperationList({ type }: { type: OperationType }) {
   const meta = OPERATION_META[type];
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get("status") as OperationStatus | null;
-  const [view, setView] = useState<ViewMode>(searchParams.get("view") === "kanban" ? "kanban" : "list");
+  const initialView = searchParams.get("view");
+  const [view, setView] = useState<ViewMode>(initialView === "kanban" || initialView === "calendar" ? initialView : "list");
   const [mine, setMine] = useState(searchParams.get("mine") === "1");
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [status, setStatus] = useState<OperationStatus | "">(initialStatus && OPERATION_STATUSES.includes(initialStatus) ? initialStatus : "");
@@ -74,6 +76,7 @@ export function OperationList({ type }: { type: OperationType }) {
   const { data: warehouses = [] } = useWarehouses();
 
   const kanban = view === "kanban";
+  const calendar = view === "calendar";
   const params = {
     type,
     q,
@@ -90,6 +93,7 @@ export function OperationList({ type }: { type: OperationType }) {
     queryFn: () => api<OperationListDTO>(`/api/operations${qs(params)}`),
     placeholderData: keepPreviousData,
     refetchInterval: LIVE_REFRESH_MS,
+    enabled: !calendar,
   });
 
   const statuses: OperationStatus[] = [...meta.flow, "cancelled"];
@@ -167,6 +171,7 @@ export function OperationList({ type }: { type: OperationType }) {
           </Toggle>
           <div className="ml-auto">
             <ViewToggle
+              modes={["list", "kanban", "calendar"]}
               value={view}
               onChange={(value) => {
                 setView(value);
@@ -176,9 +181,9 @@ export function OperationList({ type }: { type: OperationType }) {
           </div>
         </div>
 
-        {!kanban && selected.length > 0 && <BulkActions type={type} selected={selected} onClear={() => setSelectedIds(new Set())} />}
+        {view === "list" && selected.length > 0 && <BulkActions type={type} selected={selected} onClear={() => setSelectedIds(new Set())} />}
 
-        {!kanban && selected.length === 0 && (
+        {view === "list" && selected.length === 0 && (
           <div className="flex gap-1.5 overflow-x-auto border-b px-3 py-2">
             {(["", ...statuses] as const).map((value) => {
               const count = value ? (data?.statusCounts[value] ?? 0) : total;
@@ -200,7 +205,9 @@ export function OperationList({ type }: { type: OperationType }) {
           </div>
         )}
 
-        {kanban ? (
+        {calendar ? (
+          <OperationCalendar type={type} filters={{ q, warehouse, late, responsible: mine ? user.id : "" }} />
+        ) : kanban ? (
           isLoading ? (
             <div className="p-6 text-sm text-muted-foreground">Loading…</div>
           ) : (

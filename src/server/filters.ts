@@ -8,6 +8,13 @@ import {
 import { listParam, searchParam, todayParam } from "@/server/http";
 import type { OperationFilters } from "@/server/services/operation-queries";
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isoDateParam(req: NextRequest, name: string): string | undefined {
+  const value = searchParam(req, name);
+  return value && ISO_DATE.test(value) ? value : undefined;
+}
+
 /** Reads operation list filters from the query string (shared by operations and move history). */
 export function operationFilters(req: NextRequest): OperationFilters {
   const type = searchParam(req, "type") as OperationType | undefined;
@@ -25,5 +32,7 @@ export function operationFilters(req: NextRequest): OperationFilters {
     responsible: searchParam(req, "responsible"),
     today: todayParam(req),
     sort: searchParam(req, "sort") === "schedule" ? "schedule" : "recent",
+    scheduledFrom: isoDateParam(req, "scheduledFrom"),
+    scheduledTo: isoDateParam(req, "scheduledTo"),
   };
 }
