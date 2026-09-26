@@ -155,7 +155,7 @@ export function ReportsView() {
 
       {!summary || !data ? (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6">
             {Array.from({ length: 6 }, (_, index) => (
               <Skeleton key={index} className="h-28 rounded-xl" />
             ))}
@@ -164,7 +164,7 @@ export function ReportsView() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6">
             <Kpi label="Stock value" value={`₹${formatCompact(summary.stockValue)}`} hint="Current valuation at cost" icon={Wallet} />
             <Kpi label="Goods received" value={`₹${formatCompact(summary.valueIn)}`} hint={`Last ${data.days} days`} icon={ArrowDownToLine} />
             <Kpi label="Goods shipped" value={`₹${formatCompact(summary.valueOut)}`} hint={`${summary.operationsDone} operations validated`} icon={Truck} />

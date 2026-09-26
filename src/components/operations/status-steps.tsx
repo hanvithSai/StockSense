@@ -17,7 +17,8 @@ export function StatusSteps({ type, status }: { type: OperationType; status: Ope
   return (
     <ol className="flex items-center overflow-hidden rounded-lg border text-xs font-medium sm:text-sm" aria-label="Status">
       {flow.map((step, index) => {
-        const reached = index < current || (status === "done" && index === current);
+        // "Waiting" is an optional step: once passed it is shown neutral, not as completed.
+        const reached = (index < current && step !== "waiting") || (status === "done" && index === current);
         const active = index === current && status !== "done";
         return (
           <li
