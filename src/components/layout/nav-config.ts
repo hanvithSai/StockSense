@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowLeftRight,
   Boxes,
+  ChartColumn,
   ClipboardCheck,
   History,
   LayoutDashboard,
@@ -34,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Reports", href: "/reports", icon: ChartColumn },
       { title: "Move History", href: "/move-history", icon: History },
     ],
   },

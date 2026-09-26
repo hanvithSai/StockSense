@@ -257,6 +257,29 @@ export interface DashboardDTO {
   recentMoves: MoveRowDTO[];
 }
 
+export interface ReportDTO {
+  days: number;
+  summary: {
+    stockValue: number;
+    valueIn: number;
+    valueOut: number;
+    operationsDone: number;
+    /** Share of operations validated on or before their scheduled date (0-1). */
+    onTimeRate: number | null;
+    avgDeliveryHours: number | null;
+    /** Cost of goods shipped in the period divided by current stock value. */
+    turnover: number | null;
+    /** Days the current stock lasts at the period's average shipping rate. */
+    daysOfCover: number | null;
+  };
+  movement: { date: string; valueIn: number; valueOut: number; receipts: number; deliveries: number }[];
+  valueByCategory: { name: string; value: number }[];
+  valueByWarehouse: { name: string; code: string; value: number }[];
+  topProducts: { id: string; name: string; sku: string; uom: string; quantity: number; value: number }[];
+  statusByType: ({ type: OperationType } & Record<OperationStatus, number>)[];
+  slowMovers: { id: string; name: string; sku: string; uom: string; onHand: number; value: number }[];
+}
+
 export interface AlertItemDTO {
   id: string;
   name: string;

@@ -4,7 +4,7 @@ import {
   type OperationStatus,
   type OperationType,
 } from "@/lib/constants";
-import { escapeRegex, round3 } from "@/lib/format";
+import { escapeRegex, lastDays, round3 } from "@/lib/format";
 import type {
   ActivityPointDTO,
   AlertsDTO,
@@ -29,14 +29,6 @@ export interface DashboardFilters {
 }
 
 const ACTIVITY_DAYS = 14;
-
-/** The `count` calendar days ending at `today` (inclusive), as `YYYY-MM-DD`. */
-function lastDays(today: string, count: number): string[] {
-  const [year, month, day] = today.split("-").map(Number);
-  return Array.from({ length: count }, (_, index) =>
-    new Date(Date.UTC(year, month - 1, day - (count - 1 - index))).toISOString().slice(0, 10),
-  );
-}
 
 async function getActivity(filters: DashboardFilters, match: Record<string, unknown>): Promise<ActivityPointDTO[]> {
   const days = lastDays(filters.today, ACTIVITY_DAYS);
