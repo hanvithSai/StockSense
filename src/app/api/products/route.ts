@@ -1,4 +1,5 @@
 import { STOCK_STATUSES, type StockStatus } from "@/lib/constants";
+import { parseProductSort } from "@/lib/product-sort";
 import { productCreateSchema } from "@/lib/validation/master";
 import { pageParams, parseBody, route, searchParam } from "@/server/http";
 import { createProduct, listProducts } from "@/server/services/catalog";
@@ -15,6 +16,7 @@ export const GET = route({}, async ({ req }) => {
       location: searchParam(req, "location"),
       stock: STOCK_STATUSES.includes(stock as StockStatus) ? (stock as StockStatus) : undefined,
       archived: searchParam(req, "archived") === "1",
+      sort: parseProductSort(searchParam(req, "sort")),
     },
     pageParams(req, 25),
   );

@@ -11,6 +11,7 @@ import { PaginationBar } from "@/components/common/pagination-bar";
 import { SearchInput } from "@/components/common/search-input";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
+import { SortableHead } from "@/components/common/sortable-head";
 import { useSession } from "@/components/layout/session-context";
 import { ImportProductsDialog } from "@/components/products/import-products-dialog";
 import { ProductAvatar } from "@/components/products/product-avatar";
@@ -22,6 +23,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useCategories, useWarehouses } from "@/hooks/use-reference-data";
 import { api, qs } from "@/lib/api-client";
 import { formatCurrency, formatQty } from "@/lib/format";
+import { DEFAULT_PRODUCT_SORT, serializeProductSort, type ProductSort } from "@/lib/product-sort";
 import type { Paginated, ProductRowDTO } from "@/lib/types";
 
 const STOCK_FILTERS = [
@@ -40,20 +42,21 @@ export function ProductsView() {
   const [stock, setStock] = useState(searchParams.get("stock") ?? "");
   const [archived, setArchived] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<ProductSort>(DEFAULT_PRODUCT_SORT);
   const [creating, setCreating] = useState(searchParams.get("new") === "1");
   const [importing, setImporting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: categories = [] } = useCategories();
   const { data: warehouses = [] } = useWarehouses();
 
-  const params = { q, category, warehouse, stock, archived, page, limit: 25 };
+  const params = { q, category, warehouse, stock, archived, sort: serializeProductSort(sort), page, limit: 25 };
   const { data, isLoading } = useQuery({
     queryKey: ["products", params],
     queryFn: () => api<Paginated<ProductRowDTO>>(`/api/products${qs(params)}`),
     placeholderData: keepPreviousData,
   });
 
-  const withReset = (setter: (value: string) => void) => (value: string) => {
+  const withReset = <T,>(setter: (value: T) => void) => (value: T) => {
     setter(value);
     setPage(1);
   };
@@ -104,11 +107,11 @@ export function ProductsView() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Product</TableHead>
+              <SortableHead label="Product" sortKey="name" sort={sort} onSort={withReset(setSort)} />
               <TableHead className="hidden md:table-cell">Category</TableHead>
-              <TableHead className="hidden text-right lg:table-cell">Cost / unit</TableHead>
-              <TableHead className="text-right">On hand</TableHead>
-              <TableHead className="hidden text-right sm:table-cell">Free to use</TableHead>
+              <SortableHead label="Cost / unit" sortKey="costPrice" sort={sort} onSort={withReset(setSort)} className="hidden text-right lg:table-cell" />
+              <SortableHead label="On hand" sortKey="onHand" sort={sort} onSort={withReset(setSort)} className="text-right" />
+              <SortableHead label="Free to use" sortKey="free" sort={sort} onSort={withReset(setSort)} className="hidden text-right sm:table-cell" />
               <TableHead className="text-right">Status</TableHead>
             </TableRow>
           </TableHeader>

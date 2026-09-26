@@ -1,6 +1,7 @@
 import { isValidObjectId, type Types } from "mongoose";
 import type { StockStatus } from "@/lib/constants";
 import { round3, todayISO } from "@/lib/format";
+import { sortProducts, type ProductSort } from "@/lib/product-sort";
 import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
 import {
   normalizeUom,
@@ -78,6 +79,7 @@ export async function deleteCategory(id: string, actor: AuditActor): Promise<voi
 export interface ProductListOptions extends StockScope {
   stock?: StockStatus;
   archived?: boolean;
+  sort?: ProductSort;
 }
 
 export async function listProducts(
@@ -85,9 +87,10 @@ export async function listProducts(
   paging: { page: number; limit: number; skip: number },
 ): Promise<Paginated<ProductRowDTO>> {
   const rows = await getStockOverview({ ...options, includeArchived: options.archived });
-  const filtered = rows.filter(
+  const matching = rows.filter(
     (row) => (!options.stock || row.status === options.stock) && (!options.archived || !row.isActive),
   );
+  const filtered = options.sort ? sortProducts(matching, options.sort) : matching;
   return {
     items: filtered.slice(paging.skip, paging.skip + paging.limit),
     total: filtered.length,

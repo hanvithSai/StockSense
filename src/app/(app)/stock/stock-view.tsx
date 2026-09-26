@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { FilterSelect } from "@/components/common/filter-select";
 import { PageHeader } from "@/components/common/page-header";
 import { SearchInput } from "@/components/common/search-input";
+import { SortableHead } from "@/components/common/sortable-head";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
@@ -24,6 +25,7 @@ import { api, qs } from "@/lib/api-client";
 import { LIVE_REFRESH_MS } from "@/lib/constants";
 import { downloadCsv } from "@/lib/csv";
 import { formatCurrency, formatQty, todayISO } from "@/lib/format";
+import { DEFAULT_PRODUCT_SORT, sortProducts, type ProductSort } from "@/lib/product-sort";
 import type { ProductRowDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,7 @@ export function StockView() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState<StockTarget | null>(null);
   const [counting, setCounting] = useState(false);
+  const [sort, setSort] = useState<ProductSort>(DEFAULT_PRODUCT_SORT);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: warehouses = [] } = useWarehouses();
   const { data: locations = [] } = useLocations();
@@ -65,7 +68,7 @@ export function StockView() {
     downloadCsv(
       `stock-${todayISO()}.csv`,
       ["Product", "SKU", "Category", "Unit", "Cost per unit", "On hand", "Reserved", "Free to use", "Incoming", "Outgoing", "Forecast", "Value", "Status"],
-      (data ?? []).map((row) => [
+      sortProducts(data ?? [], sort).map((row) => [
         row.name,
         row.sku,
         row.category?.name,
@@ -129,12 +132,12 @@ export function StockView() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
-              <TableHead>Product</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Per unit cost</TableHead>
-              <TableHead className="text-right">On hand</TableHead>
-              <TableHead className="text-right">Free to use</TableHead>
-              <TableHead className="hidden text-right xl:table-cell">Forecast</TableHead>
-              <TableHead className="hidden text-right lg:table-cell">Value</TableHead>
+              <SortableHead label="Product" sortKey="name" sort={sort} onSort={setSort} />
+              <SortableHead label="Per unit cost" sortKey="costPrice" sort={sort} onSort={setSort} className="hidden text-right md:table-cell" />
+              <SortableHead label="On hand" sortKey="onHand" sort={sort} onSort={setSort} className="text-right" />
+              <SortableHead label="Free to use" sortKey="free" sort={sort} onSort={setSort} className="text-right" />
+              <SortableHead label="Forecast" sortKey="forecast" sort={sort} onSort={setSort} className="hidden text-right xl:table-cell" />
+              <SortableHead label="Value" sortKey="value" sort={sort} onSort={setSort} className="hidden text-right lg:table-cell" />
               <TableHead className="hidden text-right sm:table-cell">Status</TableHead>
               {canMove && <TableHead className="w-28 text-right">Update</TableHead>}
             </TableRow>
@@ -149,7 +152,7 @@ export function StockView() {
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row) => {
+              sortProducts(data, sort).map((row) => {
                 const isOpen = expanded.has(row.id);
                 return (
                   <Fragment key={row.id}>
