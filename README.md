@@ -15,7 +15,7 @@ Built for the **Odoo x GCET Hyderabad Hackathon 2026** (virtual round).
 | **Dashboard** | KPIs: products in stock, low / out of stock, pending receipts, pending deliveries, scheduled transfers. Receipt / delivery / transfer cards (to process, late, waiting, upcoming). **Dynamic filters** by document type, status, warehouse, location and category. **My work** (open operations assigned to you, most urgent first), **team activity** feed, low stock alerts and recent moves. Live refresh |
 | **Products** | Create / update products (name, SKU, category, unit of measure, cost, optional initial stock), sortable product and stock tables, stock per location, stock-level chart, categories, **reordering rules** (min / max) and **forecasts** (on hand + incoming − outgoing, plus a dated forecast of every planned receipt and delivery that flags the day stock runs short) with one-click replenishment receipts, printable **barcode labels** |
 | **Receipts** | Supplier, destination, products and quantities (pick from a searchable list or **scan the SKU barcode**): Draft → To Do → Ready → **Validate: stock increases**. **Receive partially**: book what arrived and keep the rest expected in a **backorder** |
-| **Delivery orders** | Stock is reserved on To Do (or **Waiting** when short, with the line marked red). **Pick → Pack → Validate: stock decreases**, with a printable **picking list** and **scan-to-pick** (scanning a product's barcode ticks its line) for the warehouse floor. Waiting orders become Ready automatically when stock arrives, or **ship what is available** now and let a **backorder** wait for the rest |
+| **Delivery orders** | Stock is reserved on To Do (or **Waiting** when short, with the line marked red). **Pick → Pack → Validate: stock decreases**, with a printable **picking list** and **scan-to-pick** (scanning a product's barcode ticks its line) for the warehouse floor. Waiting orders become Ready automatically when stock arrives, or **ship what is available** now and let a **backorder** wait for the rest. **Customer returns** bring goods back into the location they shipped from, never more than was delivered |
 | **Internal transfers** | Between racks, floors or warehouses (e.g. Main Store → Production Rack). Total stock unchanged, location updated |
 | **Inventory adjustments** | Pick a location, enter counted quantities, and the system applies and logs the difference. **Count a location** in one click: a draft adjustment pre-filled with everything stored there, plus a printable **blind count sheet** (recorded quantities hidden). Quick "Update stock" from the Stock page |
 | **Move history & ledger** | Every move with from → to, incoming in green, outgoing in red. List and kanban views, search by reference, contact or product. Per-product ledger with running balance |
@@ -99,6 +99,8 @@ Open operations can be cancelled (reservations released) or reset to draft. "Lat
 
 **Backorders.** A waiting delivery or transfer can ship what is free now: it keeps those quantities (reserved, Ready) and a new backorder with the rest waits for stock and is promoted automatically when a receipt brings it in. A ready receipt can be received partially: the arrived quantities are validated and the rest stays expected in a Ready backorder. Both documents link to each other (`Backorder of WH/OUT/0125`).
 
+**Returns.** A validated delivery can be returned in full or in part: StockSense creates a receipt from *Partners/Customers* back into the location the goods left from (`Return of WH/OUT/0120`). Quantities are capped by what was delivered minus earlier returns, also when the return is edited.
+
 ## REST API
 
 All endpoints return `{ data }` or `{ error: { code, message, fields } }`.
@@ -120,6 +122,7 @@ All endpoints return `{ data }` or `{ error: { code, message, fields } }`.
 | GET | `/api/operations/counts` | Work to process per operation type |
 | GET, PATCH, DELETE | `/api/operations/:id` | Read / edit / delete draft |
 | POST | `/api/operations/:id/{confirm, check-availability, pick, pack, validate, split, cancel, reset}` | State transitions; `split` creates a backorder (`{ lines?: [{ lineId, quantity }], validate?: true }`) |
+| POST | `/api/operations/:id/return` | Customer return of a validated delivery (`{ lines: [{ lineId, quantity }] }`), creates a draft receipt |
 | GET | `/api/moves`, `/api/dashboard`, `/api/alerts`, `/api/search` | Move history, KPIs, alerts, global search |
 | GET | `/api/reports?days=7\|30\|90` | Analytics: valuation, movement value, service level, velocity |
 | GET, POST | `/api/audit` | Record timeline (`entityType` + `entityId`), team feed (`feed=team`) or the full audit trail (managers); POST logs a team note |
@@ -159,7 +162,7 @@ Without the seed, the first account that signs up becomes the Inventory Manager;
 | `npm run build` / `npm start` | Production build / server |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript checks |
 | `npm test` | Unit tests (Vitest) for validation rules, permissions, transitions, backorder planning, sorting, stock status, move mapping and helpers |
-| `npm run test:engine` | Stock engine tests on an in-memory MongoDB replica set (real transactions): the steel walkthrough, pick/pack guards, waiting and auto-promotion, backorders, reserved-stock and stale-edit protection. The first run downloads the MongoDB server binary |
+| `npm run test:engine` | Stock engine tests on an in-memory MongoDB replica set (real transactions): the steel walkthrough, pick/pack guards, waiting and auto-promotion, backorders, customer returns, reserved-stock and stale-edit protection. The first run downloads the MongoDB server binary |
 | `npm run seed` | Realistic demo workspace (`-- --reset` wipes existing data first) |
 
 ### Deployment
