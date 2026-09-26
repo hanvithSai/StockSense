@@ -36,6 +36,8 @@ export interface OperationLean {
   lines: OperationLineLean[];
   doneAt: Date | null;
   doneByName: string;
+  backorderOf?: Types.ObjectId | null;
+  origin?: string;
   createdAt: Date;
   updatedAt: Date;
 }

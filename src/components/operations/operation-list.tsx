@@ -282,7 +282,10 @@ export function OperationList({ type }: { type: OperationType }) {
                         <>
                           <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">{item.sourceName}</TableCell>
                           <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">{item.destName}</TableCell>
-                          <TableCell className="max-w-56 truncate">{type === "internal" ? item.productSummary : item.contact}</TableCell>
+                          <TableCell className="max-w-56 truncate">
+                            {type === "internal" ? item.productSummary : item.contact}
+                            {item.origin && <span className="block text-xs text-muted-foreground">Backorder of {item.origin}</span>}
+                          </TableCell>
                         </>
                       )}
                       <TableCell>

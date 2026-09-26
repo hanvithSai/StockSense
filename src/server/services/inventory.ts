@@ -1,4 +1,5 @@
 import type { ClientSession, Types } from "mongoose";
+import { planSplit } from "@/lib/backorder";
 import { OPERATION_META, operationPath, type OperationStatus, type OperationType } from "@/lib/constants";
 import { formatQty, round3, todayISO } from "@/lib/format";
 import type { SessionUser } from "@/lib/types";
@@ -6,6 +7,7 @@ import {
   operationRules,
   packSchema,
   pickSchema,
+  splitSchema,
   type OperationAction,
   type OperationCreateInput,
   type OperationFields,
@@ -43,6 +45,9 @@ function operationLog(op: OperationDocument, action: string, message: string) {
  * internal    internal -> internal   draft -To Do-> ready | waiting; Validate -> done (qty moves)
  * adjustment  internal <-> Virtual   draft -Validate-> done (on hand := counted, delta logged)
  *
+ * Split (backorder): a waiting delivery/transfer ships what is in stock now and the rest waits in a
+ * backorder; a ready receipt books what arrived and the rest stays expected in a backorder.
+ *
  * Deliveries and transfers reserve stock on To Do (all lines or nothing, otherwise Waiting).
  * Every mutation runs in a transaction; done operations are immutable and form the ledger.
  */
@@ -59,6 +64,7 @@ export interface Shortage {
 export interface ActionOutcome {
   shortages: Shortage[];
   promoted: string[];
+  backorder: { id: string; reference: string } | null;
 }
 
 const RESERVING_TYPES: readonly OperationType[] = ["delivery", "internal"];
@@ -488,7 +494,7 @@ export async function runOperationAction(
   return withTransaction(async (session) => {
     const op = await loadOperation(id, session);
     const type = op.type as OperationType;
-    const outcome: ActionOutcome = { shortages: [], promoted: [] };
+    const outcome: ActionOutcome = { shortages: [], promoted: [], backorder: null };
     let log: { action: string; message: string } | null = null;
 
     switch (action) {
@@ -543,6 +549,22 @@ export async function runOperationAction(
         outcome.promoted = await validate(op, actor, session);
         return outcome;
       }
+      case "split": {
+        const { lines, validate: receiveNow } = splitSchema.parse(body ?? {});
+        if (receiveNow && type !== "receipt") throw conflict("Only receipts are validated while splitting");
+        const split = await splitOperation(op, lines, actor, session);
+        if (split) {
+          outcome.backorder = split.backorder;
+          await op.save({ session });
+          await recordActivity(actor, operationLog(op, "split", split.message), session);
+        } else if (!receiveNow) {
+          throw conflict(
+            type === "receipt" ? "Every quantity is received in full: validate instead" : "Everything is in stock: use Check availability instead",
+          );
+        }
+        if (receiveNow) outcome.promoted = await validate(op, actor, session);
+        return outcome;
+      }
       case "cancel": {
         assertStatus(op, ["draft", "waiting", "ready"], "This operation can no longer be cancelled");
         const released = op.status === "ready" && RESERVING_TYPES.includes(type);
@@ -568,6 +590,110 @@ export async function runOperationAction(
     if (log) await recordActivity(actor, operationLog(op, log.action, log.message), session);
     return outcome;
   });
+}
+
+/* ------------------------------------------------------------- backorders */
+
+/**
+ * Keeps part of each line on the operation and moves the rest to a new backorder (same partner,
+ * locations and schedule). Waiting deliveries/transfers keep what is free at the source and become
+ * ready; the backorder waits for stock and is promoted automatically when it arrives.
+ * Returns null when nothing would move to a backorder.
+ */
+async function splitOperation(
+  op: OperationDocument,
+  requested: { lineId: string; quantity: number }[] | undefined,
+  actor: Actor,
+  session: ClientSession,
+) {
+  const type = op.type as OperationType;
+  if (type === "adjustment") throw conflict("Adjustments cannot be split");
+  if (type === "receipt") assertStatus(op, ["ready"], "Mark the receipt as To Do before receiving part of it");
+  else assertStatus(op, ["waiting"], "Only operations waiting for stock can move what is available now");
+
+  const wanted = new Map((requested ?? []).map((line) => [line.lineId, line.quantity]));
+  if ([...wanted.keys()].some((lineId) => !op.lines.some((line) => line._id.toString() === lineId))) {
+    throw validationError({ lines: "This product line no longer exists. Reload and try again" });
+  }
+  const free = type === "receipt" ? null : await freeQuantities(session, op.sourceLocation, op.lines.map((line) => line.product));
+
+  const limits = op.lines.map((line) => ({
+    id: line._id.toString(),
+    quantity: line.quantity,
+    limit: free ? (free.get(line.product.toString()) ?? 0) : line.quantity,
+  }));
+  const plan = planSplit(limits, wanted).map((item, index) => {
+    const line = op.lines[index];
+    if (item.overLimit) {
+      const limit = Math.max(0, Math.min(line.quantity, limits[index].limit));
+      throw conflict(`${line.productName}: at most ${formatQty(limit)} ${line.uom} ${free ? "are in stock" : "were ordered"}`);
+    }
+    return { line, keep: item.keep, rest: item.rest };
+  });
+  const rest = plan.filter((item) => item.rest > 0);
+  if (!rest.length) return null;
+  if (plan.every((item) => item.keep === 0)) {
+    throw conflict(type === "receipt" ? "Enter the quantities received now" : `Nothing is in stock yet at ${op.sourceName}`);
+  }
+
+  const warehouse = await Warehouse.findById(op.warehouse).session(session).lean<WarehouseRecord>();
+  if (!warehouse) throw conflict("The warehouse of this operation no longer exists");
+  const reference = await nextReference(warehouse.shortCode, type, session);
+  const [backorder] = await Operation.create(
+    [
+      {
+        reference,
+        type,
+        status: type === "receipt" ? "ready" : "waiting",
+        warehouse: op.warehouse,
+        sourceLocation: op.sourceLocation,
+        destLocation: op.destLocation,
+        sourceName: op.sourceName,
+        destName: op.destName,
+        contact: op.contact,
+        deliveryAddress: op.deliveryAddress,
+        scheduledDate: op.scheduledDate,
+        responsible: op.responsible,
+        responsibleName: op.responsibleName,
+        notes: op.notes,
+        origin: op.reference,
+        backorderOf: op._id,
+        createdBy: actor.id,
+        lines: rest.map(({ line, rest: quantity }) => ({
+          product: line.product,
+          productName: line.productName,
+          sku: line.sku,
+          uom: line.uom,
+          category: line.category,
+          quantity,
+        })),
+      },
+    ],
+    { session },
+  );
+
+  // The original keeps what moves now.
+  for (const { line, keep } of plan) {
+    if (keep === 0) op.lines.pull(line._id);
+    else line.quantity = keep;
+  }
+  resetPicking(op);
+  if (type !== "receipt") {
+    if ((await reserve(op, session)).length) throw conflict("Stock changed meanwhile. Reload and try again");
+    op.status = "ready";
+  }
+
+  const restSummary = summarizeLines(rest.map(({ line, rest: quantity }) => ({ productName: line.productName, quantity, uom: line.uom })));
+  await recordActivity(
+    actor,
+    operationLog(backorder, "created", `Created as backorder of ${op.reference}: ${restSummary}`),
+    session,
+  );
+  const now = type === "receipt" ? "Received part now" : type === "delivery" ? "Shipping what is in stock now" : "Moving what is in stock now";
+  return {
+    backorder: { id: backorder._id.toString(), reference },
+    message: `${now}; backorder ${reference} created for ${restSummary}`,
+  };
 }
 
 /* ---------------------------------------------------------- adjustments */

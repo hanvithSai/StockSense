@@ -79,12 +79,24 @@ export const pickSchema = z.object({
 
 export const packSchema = z.object({ packed: z.boolean().default(true) });
 
+/**
+ * Split an operation: keep these quantities (default for waiting moves: what is in stock now)
+ * and move the rest to a backorder. Receipts can be validated in the same step.
+ */
+export const splitSchema = z.object({
+  lines: z
+    .array(z.object({ lineId: objectId(), quantity: z.number({ error: "Enter a quantity" }).min(0, "Quantity cannot be negative") }))
+    .optional(),
+  validate: z.boolean().default(false),
+});
+
 export const OPERATION_ACTIONS = [
   "confirm",
   "check-availability",
   "pick",
   "pack",
   "validate",
+  "split",
   "cancel",
   "reset",
 ] as const;

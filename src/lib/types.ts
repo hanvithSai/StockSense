@@ -174,6 +174,10 @@ export interface OperationDTO {
   isLate: boolean;
   doneAt: string | null;
   doneByName: string | null;
+  /** Set on a backorder: the operation it was split from. */
+  origin: { id: string; reference: string } | null;
+  /** Backorders split from this operation. */
+  backorders: { id: string; reference: string; status: OperationStatus }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -192,6 +196,8 @@ export interface OperationListItemDTO {
   productSummary: string;
   isLate: boolean;
   doneAt: string | null;
+  /** Reference of the operation this backorder was split from. */
+  origin: string | null;
 }
 
 export interface Paginated<T> {
@@ -210,6 +216,8 @@ export interface OperationActionResult {
   operation: OperationDTO;
   shortages: { productName: string; required: number; available: number; uom: string }[];
   promoted: string[];
+  /** Created by a split: the rest of the quantities, to receive or ship later. */
+  backorder: { id: string; reference: string } | null;
 }
 
 export type MoveDirection = "in" | "out" | "internal";

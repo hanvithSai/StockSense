@@ -19,13 +19,14 @@ import {
   RotateCcw,
   Save,
   ScanBarcode,
+  Split,
   Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -49,7 +50,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { primaryLocationId, useLocations, useProductOptions, useUserOptions, useWarehouses } from "@/hooks/use-reference-data";
 import { api, ApiError, errorMessage, qs } from "@/lib/api-client";
-import { OPERATION_META, operationPath, type OperationType } from "@/lib/constants";
+import { OPERATION_META, operationPath, STATUS_LABELS, type OperationType } from "@/lib/constants";
 import { formatDateTime, formatQty, round3, todayISO } from "@/lib/format";
 import { manageCapability } from "@/lib/permissions";
 import type { AvailabilityDTO, OperationActionResult, OperationDTO } from "@/lib/types";
@@ -62,6 +63,7 @@ import {
 } from "@/lib/validation/operations";
 import { StatusSteps } from "./status-steps";
 import { ProductPicker } from "./product-picker";
+import { SplitDialog, type SplitRequest } from "./split-dialog";
 
 export interface OperationPrefill {
   product?: string;
@@ -191,6 +193,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
 
   const [pending, setPending] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
+  const [splitting, setSplitting] = useState(false);
   const [scan, setScan] = useState("");
 
   // Ctrl/Cmd + S saves the document.
@@ -302,14 +305,26 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
   }
 
   function announce(action: OperationAction, result: OperationActionResult) {
-    const { operation: updated, shortages, promoted } = result;
+    const { operation: updated, shortages, promoted, backorder } = result;
+    if (action === "split") {
+      const title =
+        updated.status === "done"
+          ? `${updated.reference} validated, stock updated`
+          : `${updated.reference} is ready with the stock available now`;
+      const details = [backorder ? `Backorder ${backorder.reference} holds the rest` : "", promoted.length ? `Now ready: ${promoted.join(", ")}` : ""];
+      toast.success(title, {
+        description: details.filter(Boolean).join(" · ") || undefined,
+        action: backorder ? { label: "Open backorder", onClick: () => router.push(operationPath(type, backorder.id)) } : undefined,
+      });
+      return;
+    }
     if ((action === "confirm" || action === "check-availability") && updated.status === "waiting") {
       toast.warning("Waiting for stock", {
         description: shortages.map((item) => `${item.productName}: need ${formatQty(item.required)}, ${formatQty(item.available)} free`).join(" · "),
       });
       return;
     }
-    const messages: Record<OperationAction, string> = {
+    const messages: Record<Exclude<OperationAction, "split">, string> = {
       confirm: type === "receipt" ? "Ready to receive" : "Stock reserved, ready to process",
       "check-availability": "Stock is now available, operation is ready",
       pick: "Items picked",
@@ -321,8 +336,8 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
     toast.success(messages[action], promoted.length ? { description: `Now ready: ${promoted.join(", ")}` } : undefined);
   }
 
-  async function runAction(action: OperationAction, body: unknown = {}) {
-    if (!operation) return;
+  async function runAction(action: OperationAction, body: unknown = {}): Promise<boolean> {
+    if (!operation) return false;
     setPending(action);
     try {
       if (isDirty && headerEditable) {
@@ -333,7 +348,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
           },
           () => toast.error("Please fix the highlighted fields first"),
         )();
-        if (!saved) return;
+        if (!saved) return false;
       }
       const result = await api<OperationActionResult>(`/api/operations/${operation.id}/${action}${qs({ today: todayISO() })}`, {
         method: "POST",
@@ -341,8 +356,10 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
       });
       await refreshAfter(result.operation);
       announce(action, result);
+      return true;
     } catch (error) {
       toast.error(errorMessage(error));
+      return false;
     } finally {
       setPending(null);
     }
@@ -385,6 +402,10 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
   const canReset = Boolean(operation) && canManage && (status === "waiting" || status === "ready" || status === "cancelled");
   const canDelete = Boolean(operation) && canManage && (status === "draft" || status === "cancelled");
   const pickable = type === "delivery" && status === "ready" && canProcess;
+  // Partial processing with a backorder: receipts being received, moves waiting for stock.
+  const canSplit =
+    Boolean(operation) && canProcess && ((type === "receipt" && status === "ready") || ((type === "delivery" || type === "internal") && status === "waiting"));
+  const somethingInStock = Boolean(operation?.lines.some((line) => (availability?.[line.productId]?.free ?? 0) > 0));
   // Done documents print as slips; draft counts as blind count sheets; ready moves as picking lists.
   const printLabel =
     status === "done"
@@ -427,6 +448,17 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                 <ActionButton variant="outline" onClick={form.handleSubmit(onSubmit)} pending={pending === "save"} icon={Save}>
                   Save
                 </ActionButton>
+              )}
+              {canSplit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSplitting(true)}
+                  disabled={Boolean(pending) || (type !== "receipt" && !somethingInStock)}
+                  title={type !== "receipt" && !somethingInStock ? "Nothing is in stock yet" : undefined}
+                >
+                  <Split /> {type === "receipt" ? "Receive partially" : type === "delivery" ? "Ship available" : "Move available"}
+                </Button>
               )}
               {printLabel && (
                 <Button type="button" variant="outline" asChild>
@@ -508,6 +540,32 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
           <p className="text-sm text-muted-foreground">
             {operation ? `${operation.warehouse.name} · ${operation.sourceLocation.fullName} → ${operation.destLocation.fullName}` : meta.plural}
           </p>
+          {operation && (operation.origin || operation.backorders.length > 0) && (
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {operation.origin && (
+                <span>
+                  Backorder of{" "}
+                  <Link href={operationPath(type, operation.origin.id)} className="font-mono font-medium text-foreground hover:underline">
+                    {operation.origin.reference}
+                  </Link>
+                </span>
+              )}
+              {operation.backorders.length > 0 && (
+                <span>
+                  Backorder{operation.backorders.length > 1 ? "s" : ""}:{" "}
+                  {operation.backorders.map((item, index) => (
+                    <Fragment key={item.id}>
+                      {index > 0 && ", "}
+                      <Link href={operationPath(type, item.id)} className="font-mono font-medium text-foreground hover:underline">
+                        {item.reference}
+                      </Link>{" "}
+                      <span className="text-xs">({STATUS_LABELS[item.status]})</span>
+                    </Fragment>
+                  ))}
+                </span>
+              )}
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
@@ -836,6 +894,15 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
         destructive
         onConfirm={deleteOperation}
       />
+      {operation && canSplit && (
+        <SplitDialog
+          operation={operation}
+          availability={availability}
+          open={splitting}
+          onOpenChange={setSplitting}
+          onConfirm={(request: SplitRequest) => runAction("split", request)}
+        />
+      )}
     </form>
   );
 }

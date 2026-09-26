@@ -53,6 +53,9 @@ const operationSchema = new Schema(
     doneByName: { type: String, default: "" },
     cancelledAt: { type: Date, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    /** Operation this backorder was split from, and its reference (source document). */
+    backorderOf: { type: Schema.Types.ObjectId, ref: "Operation", default: null },
+    origin: { type: String, default: "" },
   },
   { timestamps: true },
 );
@@ -63,6 +66,7 @@ operationSchema.index({ destLocation: 1, status: 1 });
 operationSchema.index({ warehouse: 1, type: 1 });
 operationSchema.index({ "lines.product": 1, doneAt: -1 });
 operationSchema.index({ doneAt: -1 });
+operationSchema.index({ backorderOf: 1 });
 
 export type OperationSchema = InferSchemaType<typeof operationSchema>;
 export type OperationRecord = OperationSchema & { _id: Types.ObjectId };

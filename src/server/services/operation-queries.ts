@@ -108,6 +108,7 @@ export function toListItem(op: OperationLean, today: string): OperationListItemD
     productSummary: productSummary(op),
     isLate: isLate(op, today),
     doneAt: op.doneAt ? op.doneAt.toISOString() : null,
+    origin: op.origin || null,
   };
 }
 
@@ -140,7 +141,11 @@ export async function listOperations(
   };
 }
 
-export function toOperationDTO(op: PopulatedOperationLean, today: string): OperationDTO {
+export function toOperationDTO(
+  op: PopulatedOperationLean,
+  today: string,
+  backorders: OperationDTO["backorders"] = [],
+): OperationDTO {
   return {
     id: op._id.toString(),
     reference: op.reference,
@@ -183,6 +188,8 @@ export function toOperationDTO(op: PopulatedOperationLean, today: string): Opera
     isLate: isLate(op, today),
     doneAt: op.doneAt ? op.doneAt.toISOString() : null,
     doneByName: op.doneByName || null,
+    origin: op.backorderOf ? { id: op.backorderOf.toString(), reference: op.origin ?? "" } : null,
+    backorders,
     createdAt: op.createdAt.toISOString(),
     updatedAt: op.updatedAt.toISOString(),
   };
@@ -196,7 +203,15 @@ export async function getOperation(id: string, today: string): Promise<Operation
     .populate("destLocation", "fullName type")
     .lean<PopulatedOperationLean>();
   if (!op) throw notFound("Operation");
-  return toOperationDTO(op, today);
+  const backorders = await Operation.find({ backorderOf: op._id })
+    .sort({ createdAt: 1 })
+    .select("reference status")
+    .lean<{ _id: Types.ObjectId; reference: string; status: OperationStatus }[]>();
+  return toOperationDTO(
+    op,
+    today,
+    backorders.map((item) => ({ id: item._id.toString(), reference: item.reference, status: item.status })),
+  );
 }
 
 /** Work waiting for someone, per type: ready receipts/deliveries/transfers and draft counts. */
