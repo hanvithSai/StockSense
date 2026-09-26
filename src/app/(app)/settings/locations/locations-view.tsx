@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { Boxes, ClipboardList, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -23,9 +24,10 @@ import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useApiMutation } from "@/hooks/use-api-mutation";
-import { useLocations, useWarehouses } from "@/hooks/use-reference-data";
+import { useWarehouses } from "@/hooks/use-reference-data";
 import { api } from "@/lib/api-client";
-import type { LocationDTO } from "@/lib/types";
+import { formatCurrency } from "@/lib/format";
+import type { LocationDTO, LocationStatsDTO } from "@/lib/types";
 import { locationSchema, type LocationInput } from "@/lib/validation/master";
 
 function LocationForm({
@@ -111,7 +113,10 @@ export function LocationsView() {
   const searchParams = useSearchParams();
   const [warehouseFilter, setWarehouseFilter] = useState(searchParams.get("warehouse") ?? "");
   const { data: warehouses = [] } = useWarehouses();
-  const { data, isLoading } = useLocations();
+  const { data, isLoading } = useQuery({
+    queryKey: ["locations", "stats"],
+    queryFn: () => api<LocationStatsDTO[]>("/api/locations?stats=1"),
+  });
   const [editing, setEditing] = useState<LocationDTO | "new" | null>(null);
   const [deleting, setDeleting] = useState<LocationDTO | null>(null);
   const [counting, setCounting] = useState<LocationDTO | null>(null);
@@ -152,16 +157,18 @@ export function LocationsView() {
             <TableRow>
               <TableHead>Location</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Warehouse</TableHead>
+              <TableHead className="hidden sm:table-cell">Warehouse</TableHead>
+              <TableHead className="text-right">Products</TableHead>
+              <TableHead className="hidden text-right md:table-cell">Stock value</TableHead>
               <TableHead className="w-40 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableSkeleton columns={4} />
+              <TableSkeleton columns={6} />
             ) : rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4}>
+                <TableCell colSpan={6}>
                   <EmptyState icon={MapPin} title="No locations" description="Add racks or rooms to organise stock." />
                 </TableCell>
               </TableRow>
@@ -177,7 +184,13 @@ export function LocationsView() {
                     )}
                   </TableCell>
                   <TableCell>{location.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{location.warehouse?.name}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{location.warehouse?.name}</TableCell>
+                  <TableCell className="text-right tabular">
+                    {location.productCount || <span className="text-muted-foreground">Empty</span>}
+                  </TableCell>
+                  <TableCell className="hidden text-right tabular md:table-cell">
+                    {location.stockValue ? formatCurrency(location.stockValue) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon-sm" asChild aria-label={`Stock at ${location.fullName}`} title="View stock">
@@ -190,8 +203,9 @@ export function LocationsView() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => setCounting(location)}
+                          disabled={!location.productCount}
                           aria-label={`Count ${location.fullName}`}
-                          title="Count this location"
+                          title={location.productCount ? "Count this location" : "Nothing to count here"}
                         >
                           <ClipboardList />
                         </Button>

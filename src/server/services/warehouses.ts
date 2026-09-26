@@ -1,6 +1,6 @@
 import { isValidObjectId, type Types } from "mongoose";
 import type { LocationType } from "@/lib/constants";
-import type { LocationDTO, WarehouseDTO } from "@/lib/types";
+import type { LocationDTO, LocationStatsDTO, WarehouseDTO } from "@/lib/types";
 import type { LocationInput, WarehouseInput } from "@/lib/validation/master";
 import { withTransaction } from "@/server/db";
 import { conflict, notFound, validationError } from "@/server/errors";
@@ -190,6 +190,31 @@ export async function listLocations(options: { warehouse?: string; includeSystem
     .sort({ fullName: 1 })
     .lean<LocationWithWarehouse[]>();
   return locations.map(toLocationDTO);
+}
+
+/** Locations with the number of products they hold and the stock value at cost. */
+export async function listLocationStats(options: { warehouse?: string } = {}): Promise<LocationStatsDTO[]> {
+  const [locations, stock] = await Promise.all([
+    listLocations(options),
+    StockQuant.aggregate<{ _id: Types.ObjectId; value: number; products: number }>([
+      { $match: { quantity: { $gt: 0 } } },
+      { $lookup: { from: "products", localField: "product", foreignField: "_id", as: "product" } },
+      { $unwind: "$product" },
+      {
+        $group: {
+          _id: "$location",
+          value: { $sum: { $multiply: ["$quantity", "$product.costPrice"] } },
+          products: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+  const stats = new Map(stock.map((row) => [row._id.toString(), row]));
+  return locations.map((location) => ({
+    ...location,
+    productCount: stats.get(location.id)?.products ?? 0,
+    stockValue: Math.round((stats.get(location.id)?.value ?? 0) * 100) / 100,
+  }));
 }
 
 async function warehouseFor(id: string) {

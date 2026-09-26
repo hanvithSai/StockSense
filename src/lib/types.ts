@@ -70,6 +70,12 @@ export interface LocationDTO {
   isDefault: boolean;
 }
 
+/** Location with what it currently holds (settings page). */
+export interface LocationStatsDTO extends LocationDTO {
+  productCount: number;
+  stockValue: number;
+}
+
 export interface CategoryDTO {
   id: string;
   name: string;
