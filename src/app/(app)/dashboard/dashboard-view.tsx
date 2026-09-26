@@ -286,7 +286,7 @@ export function DashboardView() {
                     onChange={setStatus}
                     allLabel="All statuses"
                     options={OPERATION_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
-                    className="sm:w-36"
+                    className="w-36"
                   />
                 </CardAction>
                 <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">

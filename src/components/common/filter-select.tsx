@@ -18,7 +18,7 @@ interface FilterSelectProps {
 export function FilterSelect({ value, onChange, options, allLabel, className, ariaLabel }: FilterSelectProps) {
   return (
     <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? "" : next)}>
-      <SelectTrigger className={cn("h-9 w-full sm:w-44", className)} aria-label={ariaLabel ?? allLabel}>
+      <SelectTrigger className={cn("h-9 w-full sm:w-48", className)} aria-label={ariaLabel ?? allLabel}>
         <SelectValue placeholder={allLabel} />
       </SelectTrigger>
       <SelectContent>

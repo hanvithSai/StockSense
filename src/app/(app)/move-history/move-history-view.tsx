@@ -128,6 +128,7 @@ export function MoveHistoryView() {
             onChange={reset(setType)}
             allLabel="All operations"
             options={OPERATION_TYPES.map((value) => ({ value, label: OPERATION_META[value].plural }))}
+            className="sm:w-52"
           />
           <FilterSelect value={direction} onChange={reset(setDirection)} allLabel="All directions" options={DIRECTIONS} className="sm:w-36" />
           {!kanban && (

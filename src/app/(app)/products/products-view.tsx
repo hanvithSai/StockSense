@@ -101,7 +101,7 @@ export function ProductsView() {
             onChange={withReset(setArchived)}
             allLabel="Active products"
             options={[{ value: "1", label: "Archived products" }]}
-            className="sm:w-40"
+            className="sm:w-44"
           />
         </div>
         <Table>

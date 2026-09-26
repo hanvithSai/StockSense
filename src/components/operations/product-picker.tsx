@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -43,7 +43,7 @@ export function ProductPicker({ value, onChange, products, disabled, invalid, ex
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) min-w-72 p-0" align="start">
+      <PopoverContent className="@container w-(--radix-popover-trigger-width) p-0" align="start">
         <Command
           filter={(itemValue, search) => (itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}
         >
@@ -57,15 +57,24 @@ export function ProductPicker({ value, onChange, products, disabled, invalid, ex
                   <CommandItem
                     key={product.id}
                     value={`${product.sku} ${product.name}`}
+                    data-checked={product.id === value}
                     onSelect={() => {
                       onChange(product.id);
                       setOpen(false);
                     }}
                   >
-                    <Check className={cn("size-4", product.id === value ? "opacity-100" : "opacity-0")} />
-                    <span className="font-mono text-xs text-muted-foreground">[{product.sku}]</span>
-                    <span className="flex-1 truncate">{product.name}</span>
-                    <span className="text-xs text-muted-foreground tabular">
+                    {/* One line in wide lists; in narrow ones (phones) the name gets its own line under SKU and stock. */}
+                    <span className="flex min-w-0 flex-1 flex-col @xs:flex-row @xs:items-baseline @xs:gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        [{product.sku}]
+                        <span className="font-sans tabular @xs:hidden">
+                          {" "}
+                          · {formatQty(product.onHand)} {product.uom}
+                        </span>
+                      </span>
+                      <span className="truncate">{product.name}</span>
+                    </span>
+                    <span className="hidden shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular @xs:inline">
                       {formatQty(product.onHand)} {product.uom}
                     </span>
                   </CommandItem>
