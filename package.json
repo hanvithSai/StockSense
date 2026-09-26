@@ -26,6 +26,7 @@
     "geist": "^1",
     "input-otp": "^1",
     "jose": "^6",
+    "jsbarcode": "^3",
     "lucide-react": "^1.48.0",
     "mongoose": "^8",
     "next": "16.3.6",

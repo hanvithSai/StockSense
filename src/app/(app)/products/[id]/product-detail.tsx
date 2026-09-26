@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Boxes, History, Pencil, RefreshCcw } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Barcode, Boxes, History, Pencil, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useState } from "react";
@@ -90,6 +90,11 @@ export function ProductDetail({ id }: { id: string }) {
             </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" asChild>
+                <Link href={`/print/labels/${data.id}`} target="_blank">
+                  <Barcode /> Labels
+                </Link>
+              </Button>
               {can("stock:move") && data.isActive && (
                 <Button
                   variant="outline"
