@@ -12,6 +12,7 @@ import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
 import { ProductAvatar } from "@/components/products/product-avatar";
 import { StockLevelChart } from "@/components/products/stock-level-chart";
+import { ProductForecast } from "@/components/products/product-forecast";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { UpdateStockDialog, type StockTarget } from "@/components/stock/update-stock-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -184,34 +185,37 @@ export function ProductDetail({ id }: { id: string }) {
               </Table>
             </Card>
 
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Reordering rules</CardTitle>
-                <CardDescription>Alerts trigger when on hand drops to the minimum.</CardDescription>
-                <CardAction>
-                  <Button variant="link" size="sm" asChild>
-                    <Link href="/products/reordering">Manage</Link>
-                  </Button>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {productRules.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No reordering rule. Only out-of-stock alerts apply.</p>
-                ) : (
-                  productRules.map((rule) => (
-                    <div key={rule.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                      <div>
-                        <p className="font-medium">{rule.warehouse.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Min {formatQty(rule.minQty)} · Max {formatQty(rule.maxQty)} · On hand {formatQty(rule.onHand)}
-                        </p>
+            <div className="space-y-6 lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reordering rules</CardTitle>
+                  <CardDescription>Alerts trigger when on hand drops to the minimum.</CardDescription>
+                  <CardAction>
+                    <Button variant="link" size="sm" asChild>
+                      <Link href="/products/reordering">Manage</Link>
+                    </Button>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {productRules.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No reordering rule. Only out-of-stock alerts apply.</p>
+                  ) : (
+                    productRules.map((rule) => (
+                      <div key={rule.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                        <div>
+                          <p className="font-medium">{rule.warehouse.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Min {formatQty(rule.minQty)} · Max {formatQty(rule.maxQty)} · On hand {formatQty(rule.onHand)}
+                          </p>
+                        </div>
+                        <StockBadge status={rule.status} />
                       </div>
-                      <StockBadge status={rule.status} />
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+              <ProductForecast productId={data.id} uom={data.uom} minQty={data.minQty} />
+            </div>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">

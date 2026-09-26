@@ -237,6 +237,24 @@ export interface LedgerRowDTO extends MoveRowDTO {
   balance: number;
 }
 
+/** A planned receipt or delivery of one product and the on-hand quantity projected after it. */
+export interface ForecastRowDTO {
+  operationId: string;
+  reference: string;
+  type: "receipt" | "delivery";
+  status: OperationStatus;
+  scheduledDate: string;
+  contact: string;
+  change: number;
+  projected: number;
+  isLate: boolean;
+}
+
+export interface ProductForecastDTO {
+  onHand: number;
+  rows: ForecastRowDTO[];
+}
+
 export interface OperationTypeStats {
   draft: number;
   waiting: number;

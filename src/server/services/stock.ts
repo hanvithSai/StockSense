@@ -1,7 +1,8 @@
-import { isValidObjectId, type Types } from "mongoose";
-import type { StockStatus } from "@/lib/constants";
+import { isValidObjectId, Types } from "mongoose";
+import { OPEN_STATUSES, type OperationStatus, type StockStatus } from "@/lib/constants";
 import { escapeRegex, round3 } from "@/lib/format";
-import type { AvailabilityDTO, ProductOptionDTO, ProductRowDTO } from "@/lib/types";
+import type { AvailabilityDTO, ProductForecastDTO, ProductOptionDTO, ProductRowDTO } from "@/lib/types";
+import { notFound } from "@/server/errors";
 import { Operation } from "@/server/models/operation";
 import { Product } from "@/server/models/product";
 import { ReorderRule } from "@/server/models/reorder-rule";
@@ -200,4 +201,50 @@ export async function getProductOptions(): Promise<ProductOptionDTO[]> {
     uom: product.uom,
     onHand: onHand.get(product._id.toString()) ?? 0,
   }));
+}
+
+/**
+ * Forecasted stock of one product: open receipts and deliveries in scheduled order, with the
+ * on-hand quantity projected after each (internal transfers do not change the total).
+ */
+export async function getProductForecast(productId: string, today: string): Promise<ProductForecastDTO> {
+  if (!isValidObjectId(productId)) throw notFound("Product");
+  const product = new Types.ObjectId(productId);
+  const [quants, operations] = await Promise.all([
+    StockQuant.find({ product }).select("quantity").lean<{ quantity: number }[]>(),
+    Operation.find({ status: { $in: OPEN_STATUSES }, type: { $in: ["receipt", "delivery"] }, "lines.product": product })
+      .sort({ scheduledDate: 1, createdAt: 1 })
+      .select("reference type status scheduledDate contact lines.product lines.quantity")
+      .lean<
+        {
+          _id: Types.ObjectId;
+          reference: string;
+          type: "receipt" | "delivery";
+          status: OperationStatus;
+          scheduledDate: string;
+          contact: string;
+          lines: { product: Types.ObjectId; quantity: number }[];
+        }[]
+      >(),
+  ]);
+
+  const onHand = round3(quants.reduce((total, quant) => total + quant.quantity, 0));
+  let projected = onHand;
+  const rows = operations.map((op) => {
+    const quantity = op.lines.filter((line) => line.product.equals(product)).reduce((total, line) => total + line.quantity, 0);
+    const change = round3(op.type === "receipt" ? quantity : -quantity);
+    projected = round3(projected + change);
+    return {
+      operationId: op._id.toString(),
+      reference: op.reference,
+      type: op.type,
+      status: op.status,
+      scheduledDate: op.scheduledDate,
+      contact: op.contact,
+      change,
+      projected,
+      isLate: op.scheduledDate < today,
+    };
+  });
+  return { onHand, rows };
 }
