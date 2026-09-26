@@ -4,8 +4,9 @@ import {
   type OperationStatus,
   type OperationType,
 } from "@/lib/constants";
-import { escapeRegex } from "@/lib/format";
+import { escapeRegex, round3 } from "@/lib/format";
 import type {
+  LinkedOperation,
   OperationDTO,
   OperationListDTO,
   OperationListItemDTO,
@@ -108,7 +109,7 @@ export function toListItem(op: OperationLean, today: string): OperationListItemD
     productSummary: productSummary(op),
     isLate: isLate(op, today),
     doneAt: op.doneAt ? op.doneAt.toISOString() : null,
-    origin: op.origin || null,
+    origin: op.origin ? { reference: op.origin, kind: op.returnOf ? "return" : "backorder" } : null,
   };
 }
 
@@ -141,10 +142,15 @@ export async function listOperations(
   };
 }
 
+function originOf(op: PopulatedOperationLean): OperationDTO["origin"] {
+  const source = op.returnOf ?? op.backorderOf;
+  return source ? { id: source.toString(), reference: op.origin ?? "", kind: op.returnOf ? "return" : "backorder" } : null;
+}
+
 export function toOperationDTO(
   op: PopulatedOperationLean,
   today: string,
-  backorders: OperationDTO["backorders"] = [],
+  links: { backorders?: LinkedOperation[]; returns?: LinkedOperation[]; returned?: Map<string, number> } = {},
 ): OperationDTO {
   return {
     id: op._id.toString(),
@@ -184,12 +190,14 @@ export function toOperationDTO(
       picked: line.picked,
       systemQty: line.systemQty ?? null,
       delta: line.delta ?? null,
+      returned: links.returned?.get(line.product.toString()) ?? 0,
     })),
     isLate: isLate(op, today),
     doneAt: op.doneAt ? op.doneAt.toISOString() : null,
     doneByName: op.doneByName || null,
-    origin: op.backorderOf ? { id: op.backorderOf.toString(), reference: op.origin ?? "" } : null,
-    backorders,
+    origin: originOf(op),
+    backorders: links.backorders ?? [],
+    returns: links.returns ?? [],
     createdAt: op.createdAt.toISOString(),
     updatedAt: op.updatedAt.toISOString(),
   };
@@ -203,15 +211,30 @@ export async function getOperation(id: string, today: string): Promise<Operation
     .populate("destLocation", "fullName type")
     .lean<PopulatedOperationLean>();
   if (!op) throw notFound("Operation");
-  const backorders = await Operation.find({ backorderOf: op._id })
+  const linked = await Operation.find({ $or: [{ backorderOf: op._id }, { returnOf: op._id }] })
     .sort({ createdAt: 1 })
-    .select("reference status")
-    .lean<{ _id: Types.ObjectId; reference: string; status: OperationStatus }[]>();
-  return toOperationDTO(
-    op,
-    today,
-    backorders.map((item) => ({ id: item._id.toString(), reference: item.reference, status: item.status })),
-  );
+    .select("reference status returnOf lines.product lines.quantity")
+    .lean<(Pick<OperationLean, "_id" | "reference" | "status" | "returnOf"> & { lines: { product: Types.ObjectId; quantity: number }[] })[]>();
+  const link = (item: (typeof linked)[number]) => ({ id: item._id.toString(), reference: item.reference, status: item.status });
+  const returns = linked.filter((item) => item.returnOf);
+  return toOperationDTO(op, today, {
+    backorders: linked.filter((item) => !item.returnOf).map(link),
+    returns: returns.map(link),
+    returned: returnedQuantities(returns),
+  });
+}
+
+/** Quantity per product already brought back (or on its way back) by a delivery's returns. */
+export function returnedQuantities(returns: { status: OperationStatus; lines: { product: Types.ObjectId; quantity: number }[] }[]) {
+  const totals = new Map<string, number>();
+  for (const item of returns) {
+    if (item.status === "cancelled") continue;
+    for (const line of item.lines) {
+      const key = line.product.toString();
+      totals.set(key, round3((totals.get(key) ?? 0) + line.quantity));
+    }
+  }
+  return totals;
 }
 
 /** Work waiting for someone, per type: ready receipts/deliveries/transfers and draft counts. */

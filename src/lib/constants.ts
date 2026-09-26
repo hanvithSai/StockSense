@@ -69,6 +69,11 @@ export const SLUG_TO_TYPE: Record<string, OperationType> = {
   adjustments: "adjustment",
 };
 
+/** "Backorder of WH/OUT/0125" / "Return of WH/OUT/0120". */
+export function originLabel(origin: { reference: string; kind: "backorder" | "return" }) {
+  return `${origin.kind === "return" ? "Return of" : "Backorder of"} ${origin.reference}`;
+}
+
 export function operationPath(type: OperationType, id?: string) {
   const base = `/operations/${OPERATION_META[type].slug}`;
   return id ? `${base}/${id}` : base;

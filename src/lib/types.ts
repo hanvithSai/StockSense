@@ -148,12 +148,26 @@ export interface OperationLineDTO {
   picked: boolean;
   systemQty: number | null;
   delta: number | null;
+  /** Done deliveries: quantity already brought back by returns. */
+  returned: number;
 }
 
 export interface LocationRef {
   id: string;
   fullName: string;
   type: LocationType;
+}
+
+export interface OperationOrigin {
+  id: string;
+  reference: string;
+  kind: "backorder" | "return";
+}
+
+export interface LinkedOperation {
+  id: string;
+  reference: string;
+  status: OperationStatus;
 }
 
 export interface OperationDTO {
@@ -174,10 +188,12 @@ export interface OperationDTO {
   isLate: boolean;
   doneAt: string | null;
   doneByName: string | null;
-  /** Set on a backorder: the operation it was split from. */
-  origin: { id: string; reference: string } | null;
+  /** Set on a backorder (the operation it was split from) or a return (the delivery it brings back). */
+  origin: OperationOrigin | null;
   /** Backorders split from this operation. */
-  backorders: { id: string; reference: string; status: OperationStatus }[];
+  backorders: LinkedOperation[];
+  /** Returns created from this delivery. */
+  returns: LinkedOperation[];
   createdAt: string;
   updatedAt: string;
 }
@@ -196,8 +212,8 @@ export interface OperationListItemDTO {
   productSummary: string;
   isLate: boolean;
   doneAt: string | null;
-  /** Reference of the operation this backorder was split from. */
-  origin: string | null;
+  /** Operation this backorder or return comes from. */
+  origin: Omit<OperationOrigin, "id"> | null;
 }
 
 export interface Paginated<T> {

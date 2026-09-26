@@ -101,7 +101,7 @@ export function PrintDocument({ id }: { id: string }) {
           <Detail label={countSheet ? "Count date" : "Scheduled"} value={formatDate(op.scheduledDate)} />
           {!handSheet && <Detail label="Validated" value={op.doneAt ? formatDateTime(op.doneAt) : "Not validated"} />}
           <Detail label="Responsible" value={op.responsible?.name} />
-          {op.origin && <Detail label="Backorder of" value={op.origin.reference} />}
+          {op.origin && <Detail label={op.origin.kind === "return" ? "Return of" : "Backorder of"} value={op.origin.reference} />}
         </dl>
 
         <table className="w-full border-collapse text-sm">

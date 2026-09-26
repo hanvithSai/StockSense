@@ -21,6 +21,7 @@ import { StockQuant } from "@/server/models/stock-quant";
 import { User, type UserRecord } from "@/server/models/user";
 import { Warehouse, type WarehouseRecord } from "@/server/models/warehouse";
 import { recordActivity, summarizeLines } from "./audit";
+import { returnedQuantities } from "./operation-queries";
 import type { ProductLean } from "./records";
 import { nextReference } from "./sequence";
 import { getSystemLocation } from "./system-locations";
@@ -349,6 +350,20 @@ export async function updateOperation(id: string, data: OperationFields, actor: 
     }
 
     const { warehouse, fields } = await resolveFields(type, data, actor, session, structureEditable);
+    if (op.returnOf) {
+      // A return comes back from the customer location, not from a vendor, and never exceeds what was shipped.
+      fields.sourceLocation = op.sourceLocation;
+      fields.sourceName = op.sourceName;
+      const delivery = await Operation.findById(op.returnOf).session(session);
+      if (delivery && fields.lines) {
+        const open = await openToReturn(delivery, session, op._id);
+        for (const line of fields.lines) {
+          const max = open.get(line.product.toString());
+          if (max === undefined) throw validationError({ lines: `${line.productName} was not part of ${delivery.reference}` });
+          if (line.quantity > max) throw conflict(`${line.productName}: only ${formatQty(Math.max(0, max))} ${line.uom} can still be returned`);
+        }
+      }
+    }
     if (!warehouse._id.equals(op.warehouse)) {
       throw validationError({
         [type === "delivery" || type === "internal" ? "sourceLocation" : "destLocation"]:
@@ -694,6 +709,90 @@ async function splitOperation(
     backorder: { id: backorder._id.toString(), reference },
     message: `${now}; backorder ${reference} created for ${restSummary}`,
   };
+}
+
+/* ---------------------------------------------------------------- returns */
+
+/** Quantity per product of a delivery that can still be returned (other non-cancelled returns deducted). */
+async function openToReturn(delivery: OperationDocument, session: ClientSession, exclude?: Types.ObjectId) {
+  const previous = await Operation.find({ returnOf: delivery._id, ...(exclude ? { _id: { $ne: exclude } } : {}) })
+    .session(session)
+    .select("status lines.product lines.quantity")
+    .lean<{ status: OperationStatus; lines: { product: Types.ObjectId; quantity: number }[] }[]>();
+  const returned = returnedQuantities(previous);
+  return new Map(
+    delivery.lines.map((line) => [line.product.toString(), round3(line.quantity - (returned.get(line.product.toString()) ?? 0))]),
+  );
+}
+
+/**
+ * Customer return: a draft receipt from the Customers location back to the location the delivery
+ * shipped from, for at most what was delivered and not yet returned. Validating it adds the stock back.
+ */
+export async function createReturn(
+  deliveryId: string,
+  requested: { lineId: string; quantity: number }[],
+  actor: Actor,
+): Promise<{ id: string; reference: string }> {
+  return withTransaction(async (session) => {
+    const delivery = await loadOperation(deliveryId, session);
+    if (delivery.type !== "delivery" || delivery.status !== "done") throw conflict("Only validated delivery orders can be returned");
+
+    const openByProduct = await openToReturn(delivery, session);
+    const wanted = new Map(requested.map((line) => [line.lineId, round3(line.quantity)]));
+    if ([...wanted.keys()].some((lineId) => !delivery.lines.some((line) => line._id.toString() === lineId))) {
+      throw validationError({ lines: "This product line no longer exists. Reload and try again" });
+    }
+    const lines = delivery.lines.flatMap((line) => {
+      const quantity = wanted.get(line._id.toString()) ?? 0;
+      if (quantity <= 0) return [];
+      const open = openByProduct.get(line.product.toString()) ?? 0;
+      if (quantity > open) {
+        throw conflict(`${line.productName}: only ${formatQty(Math.max(0, open))} ${line.uom} can still be returned`);
+      }
+      return [{ product: line.product, productName: line.productName, sku: line.sku, uom: line.uom, category: line.category, quantity }];
+    });
+    if (!lines.length) throw validationError({ lines: "Enter the quantities coming back" });
+
+    const warehouse = await Warehouse.findById(delivery.warehouse).session(session).lean<WarehouseRecord>();
+    if (!warehouse) throw conflict("The warehouse of this delivery no longer exists");
+    const reference = await nextReference(warehouse.shortCode, "receipt", session);
+    const [created] = await Operation.create(
+      [
+        {
+          reference,
+          type: "receipt",
+          status: "draft",
+          warehouse: delivery.warehouse,
+          sourceLocation: delivery.destLocation,
+          sourceName: delivery.destName,
+          destLocation: delivery.sourceLocation,
+          destName: delivery.sourceName,
+          contact: delivery.contact,
+          scheduledDate: todayISO(),
+          responsible: actor.id,
+          responsibleName: actor.name,
+          notes: `Return of ${delivery.reference}`,
+          origin: delivery.reference,
+          returnOf: delivery._id,
+          createdBy: actor.id,
+          lines,
+        },
+      ],
+      { session },
+    );
+
+    const summary = summarizeLines(lines);
+    await recordActivity(
+      actor,
+      [
+        operationLog(delivery, "returned", `Return ${reference} created for ${summary}`),
+        operationLog(created, "created", `Created as return of ${delivery.reference}: ${summary}`),
+      ],
+      session,
+    );
+    return { id: created._id.toString(), reference };
+  });
 }
 
 /* ---------------------------------------------------------- adjustments */

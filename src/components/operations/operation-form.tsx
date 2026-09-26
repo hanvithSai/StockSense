@@ -22,6 +22,7 @@ import {
   Split,
   Trash2,
   TriangleAlert,
+  Undo2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -63,6 +64,7 @@ import {
 } from "@/lib/validation/operations";
 import { StatusSteps } from "./status-steps";
 import { ProductPicker } from "./product-picker";
+import { ReturnDialog, returnableLines } from "./return-dialog";
 import { SplitDialog, type SplitRequest } from "./split-dialog";
 
 export interface OperationPrefill {
@@ -194,6 +196,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
   const [pending, setPending] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
   const [splitting, setSplitting] = useState(false);
+  const [returning, setReturning] = useState(false);
   const [scan, setScan] = useState("");
 
   // Ctrl/Cmd + S saves the document.
@@ -430,6 +433,9 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
   const canSplit =
     Boolean(operation) && canProcess && ((type === "receipt" && status === "ready") || ((type === "delivery" || type === "internal") && status === "waiting"));
   const somethingInStock = Boolean(operation?.lines.some((line) => (availability?.[line.productId]?.free ?? 0) > 0));
+  // Customer returns of validated deliveries (planned like any receipt).
+  const canReturn =
+    Boolean(operation) && type === "delivery" && status === "done" && can("operation:plan") && returnableLines(operation!).some((row) => row.open > 0);
   // Done documents print as slips; draft counts as blind count sheets; ready moves as picking lists.
   const printLabel =
     status === "done"
@@ -482,6 +488,11 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
                   title={type !== "receipt" && !somethingInStock ? "Nothing is in stock yet" : undefined}
                 >
                   <Split /> {type === "receipt" ? "Receive partially" : type === "delivery" ? "Ship available" : "Move available"}
+                </Button>
+              )}
+              {canReturn && (
+                <Button type="button" variant="outline" onClick={() => setReturning(true)}>
+                  <Undo2 /> Return
                 </Button>
               )}
               {printLabel && (
@@ -564,14 +575,31 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
           <p className="text-sm text-muted-foreground">
             {operation ? `${operation.warehouse.name} · ${operation.sourceLocation.fullName} → ${operation.destLocation.fullName}` : meta.plural}
           </p>
-          {operation && (operation.origin || operation.backorders.length > 0) && (
+          {operation && (operation.origin || operation.backorders.length > 0 || operation.returns.length > 0) && (
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {operation.origin && (
                 <span>
-                  Backorder of{" "}
-                  <Link href={operationPath(type, operation.origin.id)} className="font-mono font-medium text-foreground hover:underline">
+                  {operation.origin.kind === "return" ? "Return of" : "Backorder of"}{" "}
+                  <Link
+                    href={operationPath(operation.origin.kind === "return" ? "delivery" : type, operation.origin.id)}
+                    className="font-mono font-medium text-foreground hover:underline"
+                  >
                     {operation.origin.reference}
                   </Link>
+                </span>
+              )}
+              {operation.returns.length > 0 && (
+                <span>
+                  Return{operation.returns.length > 1 ? "s" : ""}:{" "}
+                  {operation.returns.map((item, index) => (
+                    <Fragment key={item.id}>
+                      {index > 0 && ", "}
+                      <Link href={operationPath("receipt", item.id)} className="font-mono font-medium text-foreground hover:underline">
+                        {item.reference}
+                      </Link>{" "}
+                      <span className="text-xs">({STATUS_LABELS[item.status]})</span>
+                    </Fragment>
+                  ))}
                 </span>
               )}
               {operation.backorders.length > 0 && (
@@ -919,6 +947,7 @@ export function OperationForm({ type, operation, prefill, template }: OperationF
         destructive
         onConfirm={deleteOperation}
       />
+      {operation && canReturn && <ReturnDialog operation={operation} open={returning} onOpenChange={setReturning} />}
       {operation && canSplit && (
         <SplitDialog
           operation={operation}

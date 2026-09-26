@@ -9,7 +9,7 @@ import { Operation } from "@/server/models/operation";
 import { Product } from "@/server/models/product";
 import { StockQuant } from "@/server/models/stock-quant";
 import { User } from "@/server/models/user";
-import { createOperation, runOperationAction, updateOperation, type Actor } from "./inventory";
+import { createOperation, createReturn, runOperationAction, updateOperation, type Actor } from "./inventory";
 import { createLocation, createWarehouse } from "./warehouses";
 
 /**
@@ -182,6 +182,26 @@ describe("stock engine", () => {
     await expect(
       run(backorder!.id, "split", { validate: true, lines: [{ lineId: rest.lines[0]._id.toString(), quantity: 21 }] }),
     ).rejects.toThrow("at most 20 kg were ordered");
+  });
+
+  it("brings customer returns back into the location they shipped from, never more than delivered", async () => {
+    const delivery = await operation("delivery", [[steel, 6]]);
+    await run(delivery, "confirm");
+    await run(delivery, "pick", { picked: true });
+    await run(delivery, "pack", { packed: true });
+    await run(delivery, "validate");
+    const shipped = (await Operation.findById(delivery).lean())!;
+    const lineId = shipped.lines[0]._id.toString();
+    const before = (await quant(steel, stock)).onHand;
+
+    const first = await createReturn(delivery, [{ lineId, quantity: 4 }], actor);
+    const back = (await Operation.findById(first.id).lean())!;
+    expect(back).toMatchObject({ type: "receipt", status: "draft", origin: shipped.reference, sourceName: "Partners/Customers", destName: "WH/Stock" });
+    await expect(createReturn(delivery, [{ lineId, quantity: 3 }], actor)).rejects.toThrow("only 2 kg can still be returned");
+
+    await run(first.id, "confirm");
+    await run(first.id, "validate");
+    expect((await quant(steel, stock)).onHand).toBe(before + 4);
   });
 
   it("never lets a count go below stock reserved by other operations", async () => {

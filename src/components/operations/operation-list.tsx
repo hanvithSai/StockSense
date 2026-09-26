@@ -30,6 +30,7 @@ import {
   LIVE_REFRESH_MS,
   OPERATION_META,
   OPERATION_STATUSES,
+  originLabel,
   operationPath,
   STATUS_LABELS,
   type OperationStatus,
@@ -284,7 +285,7 @@ export function OperationList({ type }: { type: OperationType }) {
                           <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">{item.destName}</TableCell>
                           <TableCell className="max-w-56 truncate">
                             {type === "internal" ? item.productSummary : item.contact}
-                            {item.origin && <span className="block text-xs text-muted-foreground">Backorder of {item.origin}</span>}
+                            {item.origin && <span className="block text-xs text-muted-foreground">{originLabel(item.origin)}</span>}
                           </TableCell>
                         </>
                       )}

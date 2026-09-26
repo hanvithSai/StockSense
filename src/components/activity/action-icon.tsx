@@ -21,6 +21,7 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  Undo2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ const ACTIONS: Record<string, { icon: LucideIcon; tone: string; label: string }>
   waiting: { icon: Hourglass, tone: "bg-warning/15 text-amber-600 dark:text-amber-400", label: "Waiting" },
   picked: { icon: Hand, tone: "bg-violet-500/12 text-violet-600 dark:text-violet-400", label: "Picked" },
   packed: { icon: PackageCheck, tone: "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400", label: "Packed" },
+  returned: { icon: Undo2, tone: "bg-amber-500/12 text-amber-800 dark:text-amber-300", label: "Return" },
   split: { icon: Split, tone: "bg-violet-500/12 text-violet-700 dark:text-violet-400", label: "Split" },
   validated: { icon: CheckCheck, tone: "bg-success/12 text-emerald-700 dark:text-emerald-400", label: "Validated" },
   cancelled: { icon: Ban, tone: "bg-destructive/10 text-destructive", label: "Cancelled" },

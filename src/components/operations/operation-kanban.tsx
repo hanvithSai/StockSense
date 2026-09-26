@@ -11,6 +11,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { errorMessage } from "@/lib/api-client";
 import {
   OPERATION_META,
+  originLabel,
   operationPath,
   STATUS_LABELS,
   type OperationStatus,
@@ -123,7 +124,7 @@ export function OperationKanban({ type, items }: { type: OperationType; items: O
                     </div>
                     {item.contact && <p className="mt-1 truncate text-sm">{item.contact}</p>}
                     <p className="mt-1 truncate text-xs text-muted-foreground">{item.productSummary || "No products"}</p>
-                    {item.origin && <p className="mt-0.5 truncate text-xs text-muted-foreground">Backorder of {item.origin}</p>}
+                    {item.origin && <p className="mt-0.5 truncate text-xs text-muted-foreground">{originLabel(item.origin)}</p>}
                     <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span className={cn("flex items-center gap-1", item.isLate && "font-medium text-destructive")}>
                         <CalendarClock className="size-3.5" />

@@ -90,6 +90,13 @@ export const splitSchema = z.object({
   validate: z.boolean().default(false),
 });
 
+/** Customer return of a validated delivery: the quantities coming back per delivered line. */
+export const returnSchema = z.object({
+  lines: z
+    .array(z.object({ lineId: objectId(), quantity: z.number({ error: "Enter a quantity" }).min(0, "Quantity cannot be negative") }))
+    .min(1, "Choose what comes back"),
+});
+
 export const OPERATION_ACTIONS = [
   "confirm",
   "check-availability",

@@ -37,6 +37,7 @@ export interface OperationLean {
   doneAt: Date | null;
   doneByName: string;
   backorderOf?: Types.ObjectId | null;
+  returnOf?: Types.ObjectId | null;
   origin?: string;
   createdAt: Date;
   updatedAt: Date;
