@@ -48,6 +48,9 @@ function sample<T>(items: readonly T[], count: number): T[] {
   while (pool.length && result.length < count) result.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
   return result;
 }
+const FRACTIONAL_UNITS = ["kg", "m", "L"];
+/** Whole numbers for countable units, 3 decimals for weights and lengths. */
+const unitQty = (product: { uom: string }, value: number) => (FRACTIONAL_UNITS.includes(product.uom) ? round3(value) : Math.round(value));
 const nice = (value: number) => (value >= 50 ? Math.round(value / 10) * 10 : value >= 10 ? Math.round(value / 5) * 5 : Math.max(1, Math.round(value)));
 
 function dayAt(offset: number, hour: number, minute = 0): Date {
@@ -459,7 +462,9 @@ async function main() {
     const createdAt = dayAt(spec.day, spec.hour ?? int(8, 11), int(0, 59));
     const processor = spec.processor ?? pick(staff);
     const status: OperationStatus = spec.cancel ? "cancelled" : "done";
-    const doneAt = spec.cancel ? null : addMinutes(createdAt, int(60, 360));
+    // About one in eight operations is validated a day or two after its scheduled date.
+    const lateBy = spec.day < -3 && chance(0.12) ? int(1, 2) * 24 * 60 : 0;
+    const doneAt = spec.cancel ? null : addMinutes(createdAt, int(60, 360) + lateBy);
     const entity = { entityType: "operation", entityId: _id, entityLabel: reference, link };
 
     audit(createdAt, spec.creator, {
@@ -693,7 +698,7 @@ async function main() {
           warehouse: warehouses.WH,
           source: virtual.adjustment,
           dest: prod,
-          lines: consumed.map((product) => adjust(prod, product, round3(onHand(prod, product) * (0.2 + random() * 0.3)))),
+          lines: consumed.map((product) => adjust(prod, product, unitQty(product, onHand(prod, product) * (0.2 + random() * 0.3)))),
           day,
           hour: 17,
           creator: pick(staff),
