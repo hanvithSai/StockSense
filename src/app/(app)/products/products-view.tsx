@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Package, Plus, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { FilterSelect } from "@/components/common/filter-select";
@@ -13,6 +13,7 @@ import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
 import { ImportProductsDialog } from "@/components/products/import-products-dialog";
+import { ProductAvatar } from "@/components/products/product-avatar";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,7 +39,8 @@ export function ProductsView() {
   const [stock, setStock] = useState("");
   const [archived, setArchived] = useState("");
   const [page, setPage] = useState(1);
-  const [creating, setCreating] = useState(false);
+  const searchParams = useSearchParams();
+  const [creating, setCreating] = useState(searchParams.get("new") === "1");
   const [importing, setImporting] = useState(false);
   const q = useDebouncedValue(search.trim(), 250);
   const { data: categories = [] } = useCategories();
@@ -127,8 +129,13 @@ export function ProductsView() {
               data.items.map((product) => (
                 <TableRow key={product.id} className="cursor-pointer" onClick={() => router.push(`/products/${product.id}`)}>
                   <TableCell>
-                    <p className="font-medium">{product.name}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{product.sku}</p>
+                    <div className="flex items-center gap-3">
+                      <ProductAvatar name={product.name} category={product.category?.name} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{product.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{product.sku}</p>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">{product.category?.name ?? "—"}</TableCell>
                   <TableCell className="hidden text-right tabular lg:table-cell">{formatCurrency(product.costPrice)}</TableCell>

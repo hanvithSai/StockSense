@@ -12,6 +12,7 @@ import { SearchInput } from "@/components/common/search-input";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
+import { ProductAvatar } from "@/components/products/product-avatar";
 import { UpdateStockDialog, type StockTarget } from "@/components/stock/update-stock-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -144,10 +145,19 @@ export function StockView() {
                         <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", isOpen && "rotate-90")} />
                       </TableCell>
                       <TableCell>
-                        <Link href={`/products/${row.id}`} onClick={(event) => event.stopPropagation()} className="font-medium hover:underline">
-                          {row.name}
-                        </Link>
-                        <p className="font-mono text-xs text-muted-foreground">{row.sku}</p>
+                        <div className="flex items-center gap-3">
+                          <ProductAvatar name={row.name} category={row.category?.name} />
+                          <div className="min-w-0">
+                            <Link
+                              href={`/products/${row.id}`}
+                              onClick={(event) => event.stopPropagation()}
+                              className="block truncate font-medium hover:underline"
+                            >
+                              {row.name}
+                            </Link>
+                            <p className="font-mono text-xs text-muted-foreground">{row.sku}</p>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden text-right tabular md:table-cell">{formatCurrency(row.costPrice)}</TableCell>
                       <TableCell className="text-right tabular font-medium">

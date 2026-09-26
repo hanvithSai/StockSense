@@ -1,7 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Package, Search } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ClipboardCheck,
+  Package,
+  PackagePlus,
+  Search,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -20,12 +29,23 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { api, qs } from "@/lib/api-client";
 import { OPERATION_META, operationPath } from "@/lib/constants";
 import { formatQty } from "@/lib/format";
+import type { Capability } from "@/lib/permissions";
 import type { SearchResultsDTO } from "@/lib/types";
 import { NAV_GROUPS } from "./nav-config";
+import { useSession } from "./session-context";
 
-/** Global search (Ctrl/Cmd + K): products by name or SKU, operations by reference or contact, pages. */
+const QUICK_ACTIONS: { label: string; href: string; icon: LucideIcon; capability: Capability }[] = [
+  { label: "New receipt", href: "/operations/receipts/new", icon: ArrowDownToLine, capability: "operation:plan" },
+  { label: "New delivery order", href: "/operations/deliveries/new", icon: Truck, capability: "operation:plan" },
+  { label: "New internal transfer", href: "/operations/transfers/new", icon: ArrowLeftRight, capability: "stock:move" },
+  { label: "New stock adjustment", href: "/operations/adjustments/new", icon: ClipboardCheck, capability: "stock:move" },
+  { label: "New product", href: "/products?new=1", icon: PackagePlus, capability: "master:write" },
+];
+
+/** Global search (Ctrl/Cmd + K): quick actions, products by name or SKU, operations by reference or contact, pages. */
 export function SearchCommand() {
   const router = useRouter();
+  const { can } = useSession();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query.trim(), 200);
@@ -53,9 +73,11 @@ export function SearchCommand() {
     router.push(href);
   }
 
-  const pages = NAV_GROUPS.flatMap((group) => group.items).filter((item) =>
-    item.title.toLowerCase().includes(query.trim().toLowerCase()),
+  const term = query.trim().toLowerCase();
+  const pages = NAV_GROUPS.flatMap((group) => group.items).filter(
+    (item) => (!item.capability || can(item.capability)) && item.title.toLowerCase().includes(term),
   );
+  const actions = QUICK_ACTIONS.filter((action) => can(action.capability) && action.label.toLowerCase().includes(term));
 
   return (
     <>
@@ -111,6 +133,16 @@ export function SearchCommand() {
               ))}
             </CommandGroup>
           ) : null}
+          {actions.length > 0 && (
+            <CommandGroup heading="Quick actions">
+              {actions.map((action) => (
+                <CommandItem key={action.href} value={`action-${action.label}`} onSelect={() => go(action.href)}>
+                  <action.icon />
+                  {action.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
           {pages.length > 0 && (
             <CommandGroup heading="Pages">
               {pages.map((page) => (

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { StockBadge } from "@/components/common/stock-badge";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { useSession } from "@/components/layout/session-context";
+import { ProductAvatar } from "@/components/products/product-avatar";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { UpdateStockDialog, type StockTarget } from "@/components/stock/update-stock-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,8 @@ export function ProductDetail({ id }: { id: string }) {
       ) : (
         <>
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4">
+            <ProductAvatar name={data.name} category={data.category?.name} className="size-14 rounded-xl text-base" />
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight">{data.name}</h1>
@@ -83,6 +86,7 @@ export function ProductDetail({ id }: { id: string }) {
                 {data.category?.name} · {data.uom}
                 {data.description && ` · ${data.description}`}
               </p>
+            </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {can("stock:move") && data.isActive && (
