@@ -135,6 +135,13 @@ export function ReorderingView() {
     mutationFn: (id) => api(`/api/reorder-rules/${id}`, { method: "DELETE" }),
     success: "Rule deleted",
   });
+  const [confirmReplenish, setConfirmReplenish] = useState(false);
+  const replenish = useApiMutation<void, { references: string[] }>({
+    mutationFn: () => api("/api/reorder-rules/replenish", { method: "POST" }),
+    success: (result) =>
+      result.references.length ? `Draft receipts created: ${result.references.join(", ")}` : "Nothing to replenish",
+  });
+  const dueCount = data?.filter((rule) => rule.suggestedQty > 0).length ?? 0;
 
   function replenishHref(rule: ReorderRuleDTO) {
     const location = warehouses.find((warehouse) => warehouse.id === rule.warehouse.id)?.defaultLocationId;
@@ -147,12 +154,27 @@ export function ReorderingView() {
         title="Reordering rules"
         description="Minimum and maximum stock per warehouse. Products at or below the minimum raise low stock alerts."
         actions={
-          canWrite && (
-            <Button onClick={() => setEditing("new")}>
-              <Plus /> New rule
-            </Button>
-          )
+          <>
+            {canPlan && dueCount > 0 && (
+              <Button variant="outline" onClick={() => setConfirmReplenish(true)} disabled={replenish.isPending}>
+                {replenish.isPending ? <Spinner /> : <ArrowDownToLine />} Replenish all ({dueCount})
+              </Button>
+            )}
+            {canWrite && (
+              <Button onClick={() => setEditing("new")}>
+                <Plus /> New rule
+              </Button>
+            )}
+          </>
         }
+      />
+      <ConfirmDialog
+        open={confirmReplenish}
+        onOpenChange={setConfirmReplenish}
+        title={`Create receipts for ${dueCount} product${dueCount === 1 ? "" : "s"}?`}
+        description="One draft receipt per warehouse is created, ordering each product up to its maximum. Assign the vendor on each receipt before confirming it."
+        confirmLabel="Create draft receipts"
+        onConfirm={() => replenish.mutate()}
       />
       <Card className="gap-0 py-0">
         <Table>

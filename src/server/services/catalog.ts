@@ -1,6 +1,6 @@
 import { isValidObjectId, type Types } from "mongoose";
 import type { StockStatus } from "@/lib/constants";
-import { round3 } from "@/lib/format";
+import { round3, todayISO } from "@/lib/format";
 import type { CategoryDTO, Paginated, ProductRowDTO, ReorderRuleDTO } from "@/lib/types";
 import {
   normalizeUom,
@@ -20,7 +20,7 @@ import { ReorderRule } from "@/server/models/reorder-rule";
 import { StockQuant } from "@/server/models/stock-quant";
 import { Warehouse } from "@/server/models/warehouse";
 import { recordActivity, type AuditActor } from "./audit";
-import { createAppliedAdjustment, type Actor } from "./inventory";
+import { createAppliedAdjustment, createOperation, type Actor } from "./inventory";
 import { getStockOverview, stockStatus, type StockScope } from "./stock";
 
 /* -------------------------------------------------------------- categories */
@@ -313,6 +313,51 @@ export async function listReorderRules(): Promise<ReorderRuleDTO[]> {
       };
     })
     .sort((a, b) => a.product.name.localeCompare(b.product.name));
+}
+
+/**
+ * Creates one draft receipt per warehouse for every product at or below its minimum,
+ * ordering enough to refill to the maximum. Returns the new references.
+ */
+export async function replenishLowStock(actor: Actor): Promise<string[]> {
+  const due = (await listReorderRules()).filter((rule) => rule.suggestedQty > 0);
+  if (!due.length) return [];
+  const active = new Set(
+    (await Product.find({ _id: { $in: due.map((rule) => rule.product.id) }, isActive: true }).select("_id").lean<{ _id: Types.ObjectId }[]>()).map(
+      (product) => product._id.toString(),
+    ),
+  );
+  const byWarehouse = new Map<string, ReorderRuleDTO[]>();
+  for (const rule of due.filter((item) => active.has(item.product.id))) {
+    byWarehouse.set(rule.warehouse.id, [...(byWarehouse.get(rule.warehouse.id) ?? []), rule]);
+  }
+  const warehouses = await Warehouse.find({ _id: { $in: [...byWarehouse.keys()] } }).lean<
+    { _id: Types.ObjectId; defaultLocation: Types.ObjectId | null }[]
+  >();
+
+  const ids: string[] = [];
+  for (const warehouse of warehouses) {
+    const rules = byWarehouse.get(warehouse._id.toString()) ?? [];
+    if (!warehouse.defaultLocation || !rules.length) continue;
+    ids.push(
+      await createOperation(
+        {
+          type: "receipt",
+          sourceLocation: "",
+          destLocation: warehouse.defaultLocation.toString(),
+          contact: "Replenishment order",
+          deliveryAddress: "",
+          scheduledDate: todayISO(),
+          responsible: actor.id,
+          notes: `Generated from reordering rules: ${rules.length} product${rules.length === 1 ? "" : "s"} at or below minimum. Assign the vendor before confirming.`,
+          lines: rules.slice(0, 100).map((rule) => ({ product: rule.product.id, quantity: rule.suggestedQty })),
+        },
+        actor,
+      ),
+    );
+  }
+  const created = await Operation.find({ _id: { $in: ids } }).select("reference").lean<{ reference: string }[]>();
+  return created.map((op) => op.reference);
 }
 
 /** Validates the rule's references and returns a readable label, e.g. "Desk · WH". */
